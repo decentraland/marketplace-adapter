@@ -1,1 +1,1 @@
-# marketplace-adapter
+# Decentraland marketplace-adapter
