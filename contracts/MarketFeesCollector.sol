@@ -7,7 +7,11 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract MarketFeesCollector is Ownable {
 
-    event CollectedFeesBurned(address callingAddr, uint etherBalance, uint burnedTokens);
+    event CollectedFeesBurned(
+        address indexed callingAddr,
+        uint256 etherBalance,
+        uint256 burnedTokens
+    );
 
     address public immutable exchangeToken;
     address public immutable uniswapV2Router;
@@ -39,10 +43,10 @@ contract MarketFeesCollector is Ownable {
         path[0] = router.WETH();
         path[1] = exchangeToken;
 
-        uint etherBalance = address(this).balance;
+        uint256 etherBalance = address(this).balance;
 
         /// https://uniswap.org/docs/v2/smart-contracts/router/#swapexactethfortokens
-        uint[] memory amounts = router.swapExactETHForTokens{
+        uint256[] memory amounts = router.swapExactETHForTokens{
             value: etherBalance
         }(
             0,
