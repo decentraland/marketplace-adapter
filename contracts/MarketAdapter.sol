@@ -102,12 +102,12 @@ contract MarketAdapter is Ownable, IERC721Receiver {
 
         /// Check theres no pending transfer for this order
         require(
-            pendingTransfers[_registry][_tokenId] == false,
+            pendingTransfers[address(_registry)][_tokenId] == false,
             "MarketAdapter: failed to execute buy order"
         );
 
         /// flag this tokenId as pending transfer
-        pendingTransfers[_registry[_tokenId] = true;
+        pendingTransfers[address(_registry)][_tokenId] = true;
 
         /// Get adapter fees from total order value
         uint256 totalOrderValue = msg.value;
@@ -131,7 +131,7 @@ contract MarketAdapter is Ownable, IERC721Receiver {
         );
 
         /// Remove asset from pending
-        delete pendingTransfers[_registry[_tokenId];
+        delete pendingTransfers[address(_registry)][_tokenId];
 
         /// Send order fee to Collector. Reverts on failure
         if (adapterFeesCollector != address(0)) {
@@ -157,12 +157,11 @@ contract MarketAdapter is Ownable, IERC721Receiver {
 
     /**
      * @dev Called uppon after a ERC721 transfer to this contract.
-     *  Rejects transfers from non whitelisted markets.
      */
     function onERC721Received(
-        address _operator,
         address,
-        uint256 _tokenId,
+        address,
+        uint256,
         bytes memory
     )
         public virtual override returns (bytes4)
