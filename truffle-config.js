@@ -1,5 +1,5 @@
-require('babel-register')
-require('babel-polyfill')
+require('@babel/register')
+require('@babel/polyfill')
 
 const HDWalletProvider = require('truffle-hdwallet-provider')
 
@@ -13,12 +13,6 @@ const createInfuraProvider = (network = 'mainnet') =>
   )
 
 module.exports = {
-  solc: {
-    optimizer: {
-      enabled: true,
-      runs: 200
-    }
-  },
   networks: {
     livenet: {
       host: 'localhost',

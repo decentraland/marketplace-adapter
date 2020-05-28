@@ -2,7 +2,20 @@
   "name": "marketplace-adapter",
   "version": "1.0.0",
   "description": "Contracts for Decentraland's Marketplace Adapter",
-  "main": "index.js",
+  "main": "truffle-config.js",
+  "directories": {
+    "test": "test"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.10.1",
+    "@babel/polyfill": "^7.10.1",
+    "@babel/preset-env": "^7.10.1",
+    "@babel/register": "^7.10.1",
+    "@openzeppelin/cli": "^2.8.2",
+    "@openzeppelin/contracts": "^3.0.1",
+    "@truffle/hdwallet-provider": "^1.0.35",
+    "@uniswap/v2-periphery": "^1.0.0-beta.0"
+  },
   "scripts": {
     "test": "scripts/test.sh",
     "test:coverage": "SOLIDITY_COVERAGE=true scripts/test.sh",
@@ -20,44 +33,5 @@
     "url": "https://github.com/decentraland/marketplace-adapter/issues"
   },
   "homepage": "https://github.com/decentraland/marketplace-adapter#readme",
-  "devDependencies": {
-    "@nomiclabs/buidler": "^1.0.2",
-    "@nomiclabs/buidler-truffle5": "^1.0.2",
-    "@nomiclabs/buidler-web3": "^1.0.1",
-    "babel-eslint": "^8.2.1",
-    "babel-plugin-transform-object-rest-spread": "^6.26.0",
-    "babel-polyfill": "^6.26.0",
-    "babel-preset-env": "^1.6.1",
-    "babel-register": "^6.26.0",
-    "bn-chai": "^1.0.1",
-    "chai": "^4.1.2",
-    "chai-as-promised": "^7.1.1",
-    "chai-bignumber": "^3.0.0",
-    "decentraland-contract-plugins": "^1.1.0",
-    "eslint": "^4.18.2",
-    "eslint-config-prettier": "^2.9.0",
-    "eslint-plugin-prettier": "^2.4.0",
-    "ethereumjs-abi": "^0.6.5",
-    "ganache-cli": "^6.7.0",
-    "mocha": "^6.0.2",
-    "openzeppelin-solidity": "^2.4.0",
-    "prettier": "^1.19.1",
-    "solidity-coverage": "^0.7.1",
-    "solium": "^1.2.3",
-    "truffle": "^5.1.5",
-    "truffle-flattener": "^1.2.4"
-  },
-  "dependencies": {
-    "@openzeppelin/contracts": "^2.4.0",
-    "buidler": "^0.2.8",
-    "openzeppelin-eth": "^2.2.0",
-    "truffle-hdwallet-provider": "^1.0.10",
-    "zos": "^2.4.0",
-    "zos-lib": "^2.4.0"
-  },
-  "prettier": {
-    "semi": false,
-    "singleQuote": true,
-    "printWidth": 80
-  }
+  "dependencies": {}
 }
