@@ -13,7 +13,7 @@ contract MarketAdapter is Ownable, IERC721Receiver {
     using SafeMath for uint256;
 
     event ExecutedOrder(
-        uint256 indexed registry,
+        address indexed registry,
         uint256 indexed tokenId,
         address indexed marketplace,
         uint256 orderValue,
@@ -45,7 +45,7 @@ contract MarketAdapter is Ownable, IERC721Receiver {
 
     /**
      * @dev Sets whitelisting status for a marketplace
-     * @param _marketplaceplace address
+     * @param _marketplace address
      * @param _action true if allowed, false otherwise
      */
     function setMarketplaceAllowance(
@@ -134,7 +134,7 @@ contract MarketAdapter is Ownable, IERC721Receiver {
         delete pendingTransfers[address(_registry)][_tokenId];
 
         /// Send order fee to Collector. Reverts on failure
-        if (adapterFeesCollector) {
+        if (adapterFeesCollector != address(0)) {
             adapterFeesCollector.transfer(
                 transactionFee.add(address(this).balance)
             );
