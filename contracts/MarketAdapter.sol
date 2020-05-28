@@ -20,6 +20,10 @@ contract MarketAdapter is Ownable, IERC721Receiver {
         uint256 orderFees
     );
 
+    event MarketplaceAllowance(address indexed marketplace, bool value);
+    event FeesCollectorChange(address indexed collector);
+    event AdapterFeeChange(uint256 previousFee, uint256 newFee);
+
     /// Allowed map of marketplaces
     mapping (address => bool) private whitelistedMarkets;
 
@@ -55,6 +59,11 @@ contract MarketAdapter is Ownable, IERC721Receiver {
         public onlyOwner
     {
         whitelistedMarkets[_marketplace] = _action;
+        emit MarketplaceAllowance(_marketplace, _action);
+    }
+
+    function isMarketplaceAllowed(address _marketplace) public view returns (bool) {
+        return whitelistedMarkets[_marketplace];
     }
 
     /**
@@ -63,6 +72,7 @@ contract MarketAdapter is Ownable, IERC721Receiver {
      */
     function setFeesCollector(address payable _collector) public onlyOwner {
         adapterFeesCollector = _collector;
+        emit FeesCollectorChange(_collector);
     }
 
     /**
@@ -74,6 +84,7 @@ contract MarketAdapter is Ownable, IERC721Receiver {
             ADAPTER_FEE_MAX >= _transactionFee,
             "MarketAdapter: Invalid transaction fee"
         );
+        emit AdapterFeeChange(adapterTransactionFee, _transactionFee);
         adapterTransactionFee = _transactionFee;
     }
 

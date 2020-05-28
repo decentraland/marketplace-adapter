@@ -13,13 +13,15 @@
     "@babel/register": "^7.10.1",
     "@openzeppelin/cli": "^2.8.2",
     "@openzeppelin/contracts": "^3.0.1",
+    "@openzeppelin/test-environment": "^0.1.4",
+    "@openzeppelin/test-helpers": "^0.5.5",
     "@truffle/hdwallet-provider": "^1.0.35",
-    "@uniswap/v2-periphery": "^1.0.0-beta.0"
+    "@uniswap/v2-periphery": "^1.0.0-beta.0",
+    "chai": "^4.2.0",
+    "mocha": "^7.2.0"
   },
   "scripts": {
-    "test": "scripts/test.sh",
-    "test:coverage": "SOLIDITY_COVERAGE=true scripts/test.sh",
-    "test:watch": "nodemon test/** contracts/** --exec 'npm test'",
+    "test": "oz compile && mocha --exit --recursive test",
     "lint": "npx eslint test && npx solium -d contracts",
     "lint:fix": "npx eslint --fix test && npx solium -d contracts --fix"
   },
