@@ -34,7 +34,7 @@ contract MarketAdapter is Ownable, IERC721Receiver {
     address payable public adapterFeesCollector;
 
     /// Mapping of opened orders whating for assets transfer
-    /// MarketPlace -> AssetId -> bool
+    /// Registry -> tokenId -> bool
     mapping (address => mapping(uint256 => bool)) private pendingTransfers;
 
     /**
@@ -102,12 +102,12 @@ contract MarketAdapter is Ownable, IERC721Receiver {
 
         /// Check theres no pending transfer for this order
         require(
-            pendingTransfers[address(_registry)][_tokenId] == false,
+            pendingTransfers[_registry][_tokenId] == false,
             "MarketAdapter: failed to execute buy order"
         );
 
         /// flag this tokenId as pending transfer
-        pendingTransfers[address(_registry)][_tokenId] = true;
+        pendingTransfers[_registry[_tokenId] = true;
 
         /// Get adapter fees from total order value
         uint256 totalOrderValue = msg.value;
@@ -131,7 +131,7 @@ contract MarketAdapter is Ownable, IERC721Receiver {
         );
 
         /// Remove asset from pending
-        delete pendingTransfers[address(_registry)][_tokenId];
+        delete pendingTransfers[_registry[_tokenId];
 
         /// Send order fee to Collector. Reverts on failure
         if (adapterFeesCollector != address(0)) {
@@ -167,16 +167,6 @@ contract MarketAdapter is Ownable, IERC721Receiver {
     )
         public virtual override returns (bytes4)
     {
-        require(
-            whitelistedMarkets[_operator],
-            "onERC721Received: operator is not allowed"
-        );
-
-        require(
-            pendingTransfers[_operator][_tokenId],
-            "onERC721Received: no waiting receiver for this asset"
-        );
-
         return this.onERC721Received.selector;
     }
 }
