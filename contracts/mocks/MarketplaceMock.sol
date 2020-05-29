@@ -14,7 +14,7 @@ contract MarketplaceMock {
         );
     }
 
-    /// this buy method wont call ERC721Reveived callback
+    // this buy method wont call ERC721Reveived callback
     function buyAlt(uint256 _assetId, address _registry) public {
         ERC721Mock(_registry).transfer(
             address(this), msg.sender, _assetId

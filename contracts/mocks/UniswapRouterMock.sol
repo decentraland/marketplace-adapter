@@ -3,7 +3,7 @@
 pragma solidity ^0.6.8;
 
 
-/// Mock called IUniswapV2Router01 methods
+// Mock called IUniswapV2Router01 methods
 contract UniswapRouterMock {
 
     function WETH() public pure returns (address) {

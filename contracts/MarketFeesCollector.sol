@@ -2,8 +2,8 @@
 
 pragma solidity ^0.6.8;
 
-import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router01.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "./dex/IConverter.sol";
 
 contract MarketFeesCollector is Ownable {
 
@@ -13,21 +13,24 @@ contract MarketFeesCollector is Ownable {
         uint256 burnedTokens
     );
 
-    address public immutable exchangeToken;
-    address public immutable uniswapV2Router;
+    event SetConverter(address indexed converter);
+
+    // configured fee
+    IConverter public feesConverter;
 
     /**
-     * @param _token ERC20 token address used on the final exchange pair
-     * @param _router Uniswap V2 router address. https://uniswap.org/docs/v2/smart-contracts/router/
+     * @param _converter address of collected fees burner implementation
      */
-    constructor(
-        address _token,
-        address _router
-    )
-        Ownable() public
-    {
-        exchangeToken = _token;
-        uniswapV2Router = _router;
+    constructor(address _converter) Ownable() public {
+        setConverter(_converter);
+    }
+
+    /**
+     * @param _converter address of collected fees burner implementation
+     */
+    function setConverter(address _converter) public onlyOwner {
+        feesConverter = IConverter(_converter);
+        emit SetConverter(_converter);
     }
 
     /**
@@ -35,32 +38,15 @@ contract MarketFeesCollector is Ownable {
      */
     function burnCollectedFees() public {
 
-        /// Burn accumulated ether balance
-        IUniswapV2Router01 router = IUniswapV2Router01(uniswapV2Router);
-
-        address[] memory path = new address[](2);
-
-        path[0] = router.WETH();
-        path[1] = exchangeToken;
-
-        uint256 etherBalance = address(this).balance;
-
-        /// https://uniswap.org/docs/v2/smart-contracts/router/#swapexactethfortokens
-        uint256[] memory amounts = router.swapExactETHForTokens{
-            value: etherBalance
-        }(
-            0,
-            path,
-            address(0),
-            block.timestamp
-        );
-
-        require(address(this).balance == 0, 'MarketFeeBurner: FAILED ETH-TOKEN SWAP');
+        uint256 totalBalance = address(this).balance;
+        uint256 totalConverted = feesConverter.burn{
+            value: totalBalance
+        }();
 
         emit CollectedFeesBurned(
             msg.sender,
-            etherBalance,
-            amounts[amounts.length - 1]
+            totalBalance,
+            totalConverted
         );
     }
 }

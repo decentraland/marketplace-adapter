@@ -4,12 +4,13 @@ pragma solidity ^0.6.8;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 
 
-contract MarketAdapter is Ownable, IERC721Receiver {
+contract MarketAdapter is Ownable, ReentrancyGuard, IERC721Receiver {
     using SafeMath for uint256;
 
     event ExecutedOrder(
@@ -24,24 +25,22 @@ contract MarketAdapter is Ownable, IERC721Receiver {
     event FeesCollectorChange(address indexed collector);
     event AdapterFeeChange(uint256 previousFee, uint256 newFee);
 
-    /// Allowed map of marketplaces
+    // Allowed map of marketplaces
     mapping (address => bool) private whitelistedMarkets;
 
-    /// Order execution fee in a 0 - 1000 basis
+    // Order execution fee in a 0 - 1000 basis
     uint256 public adapterTransactionFee = 0;
 
-    /// Max allowed fee for the adapter
-    uint256 public constant ADAPTER_FEE_MAX = 150; // 15%
-    uint256 public constant ADAPTER_FEE_PRECISION = 1000;
+    // Max allowed fee for the adapter
+    uint256 public constant ADAPTER_FEE_MAX = 150000; // 15%
+    uint256 public constant ADAPTER_FEE_PRECISION = 1000000;
 
-    /// MarketFeesCollector address
+    // MarketFeesCollector address
     address payable public adapterFeesCollector;
 
-    /// Mapping of opened orders whating for assets transfer
-    /// Registry -> tokenId -> bool
-    mapping (address => mapping(uint256 => bool)) private pendingTransfers;
-
     /**
+     * @dev constructor
+     * @param _collector address of the Fee Collector
      */
     constructor(address payable _collector) Ownable() public {
         adapterFeesCollector = _collector;
@@ -96,13 +95,13 @@ contract MarketAdapter is Ownable, IERC721Receiver {
      * @param _marketplace whitelisted marketplace listing the asset.
      * @param _encodedCallData forwarded to whitelisted marketplace.
      */
-    function buy_adapter(
+    function buy(
         IERC721 _registry,
         uint256 _tokenId,
         address _marketplace,
         bytes memory _encodedCallData
     )
-        public payable
+        public payable nonReentrant
     {
         require(
             whitelistedMarkets[_marketplace],
@@ -111,16 +110,7 @@ contract MarketAdapter is Ownable, IERC721Receiver {
 
         require(msg.value > 0, "MarketAdapter: invalid order value");
 
-        /// Check theres no pending transfer for this order
-        require(
-            pendingTransfers[address(_registry)][_tokenId] == false,
-            "MarketAdapter: failed to execute buy order"
-        );
-
-        /// flag this tokenId as pending transfer
-        pendingTransfers[address(_registry)][_tokenId] = true;
-
-        /// Get adapter fees from total order value
+        // Get adapter fees from total order value
         uint256 totalOrderValue = msg.value;
         uint256 transactionFee = totalOrderValue
             .mul(adapterTransactionFee)
@@ -128,7 +118,10 @@ contract MarketAdapter is Ownable, IERC721Receiver {
 
         uint256 relayedOrderValue = totalOrderValue.sub(transactionFee);
 
-        /// execute buy order in destination marketplace
+        // Save contract balance before call to marketplace
+        uint256 preCallBalance = address(this).balance;
+
+        // execute buy order in destination marketplace
         (bool success, ) = _marketplace.call{
             value: relayedOrderValue
         }(
@@ -136,27 +129,30 @@ contract MarketAdapter is Ownable, IERC721Receiver {
         );
 
         require(success, "MarketAdapter: failed to execute buy order");
+
+        require(
+            address(this).balance == preCallBalance.sub(relayedOrderValue),
+            "MarketAdapter: postcall balance mismatch"
+        );
+
         require(
             _registry.ownerOf(_tokenId) == address(this),
             "MarketAdapter: tokenId not transfered"
         );
 
-        /// Remove asset from pending
-        delete pendingTransfers[address(_registry)][_tokenId];
-
-        /// Send order fee to Collector. Reverts on failure
+        // Send order fee to Collector. Reverts on failure
         if (adapterFeesCollector != address(0)) {
             adapterFeesCollector.transfer(
                 transactionFee.add(address(this).balance)
             );
         }
 
-        /// Transfer tokenId to caller
+        // Transfer tokenId to caller
         _registry.safeTransferFrom(
             address(this), msg.sender, _tokenId
         );
 
-        /// Log succesful executed order
+        // Log succesful executed order
         emit ExecutedOrder(
             address(_registry),
             _tokenId,

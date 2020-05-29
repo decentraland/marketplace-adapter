@@ -9,7 +9,7 @@ const {
 
 const MarketAdapter = contract.fromArtifact('MarketAdapter');
 
-/// Load Mocks
+// Load Mocks
 const MarketplaceMock = contract.fromArtifact('MarketplaceMock');
 const ERC721Mock = contract.fromArtifact('ERC721Mock');
 
@@ -73,7 +73,7 @@ describe('MarketAdapter', function() {
     });
   });
 
-  /// Adapter fee changes
+  // Adapter fee changes
   describe('Adapter fee admin', function() {
 
     it(`emits AdapterFeeChange on succesful set`, async function() {
@@ -109,16 +109,16 @@ describe('MarketAdapter', function() {
     });
   });
 
-  /// Buy method
+  // Buy method
   describe('Calling buy_adapter()', function() {
 
     beforeEach(async function () {
       this.tokenIdMock = 2000;
 
-      /// create a mock marketplace and assing a mock token
+      // create a mock marketplace and assing a mock token
       this.marketplaceMock = await MarketplaceMock.new({ from: owner });
 
-      /// create a mock registry and mint tokenId to marketplace
+      // create a mock registry and mint tokenId to marketplace
       this.erc721RegistryMock = await ERC721Mock.new(
         this.marketplaceMock.address,
         this.tokenIdMock, {
