@@ -109,7 +109,7 @@ contract MarketAdapter is Ownable, IERC721Receiver {
             "MarketAdapter: dest market is not whitelisted"
         );
 
-        require(msg.value > 0, "invalid order value");
+        require(msg.value > 0, "MarketAdapter: invalid order value");
 
         /// Check theres no pending transfer for this order
         require(

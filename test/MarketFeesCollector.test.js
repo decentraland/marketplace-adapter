@@ -18,7 +18,14 @@ describe('MarketFeesCollector', function() {
     this.contract = await MarketFeesCollector.new({ from: owner });
   });
 
-  it(``, async function() {
+  //
+  describe('', function() {
+
+    it(`emits CollectedFeesBurned on success swap`, async function() {
+    });
+
+    it(`reverts when non completed`, async function() {
+    });
   });
 
 });
