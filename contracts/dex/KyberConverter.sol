@@ -3,24 +3,14 @@
 pragma solidity ^0.6.8;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "./IConverter.sol";
 
-interface KyberNetworkProxy {
-    function trade(
-        IERC20 _srcToken,
-        uint _srcAmount,
-        IERC20 _destToken,
-        address _destAddress,
-        uint _maxDestAmount,
-        uint _minConversionRate,
-        address _walletId
-        )
-        external payable returns(uint);
-}
+import "./IConverter.sol";
+import "./IKyberNetworkProxy.sol";
+
 
 contract KyberConverter is IConverter {
 
-    address private immutable kyberProxy;
+    IKyberNetworkProxy private immutable kyberProxy;
 
     IERC20 private immutable srcToken;
     IERC20 private immutable dstToken;
@@ -38,7 +28,7 @@ contract KyberConverter is IConverter {
         srcToken = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE); // ETH
         dstToken = IERC20(_dstToken);
 
-        kyberProxy = _kyberProxy;
+        kyberProxy = IKyberNetworkProxy(_kyberProxy);
     }
 
     /**
@@ -50,7 +40,7 @@ contract KyberConverter is IConverter {
         uint256 srcAmount = address(this).balance;
 
         // Trade srcAmount from srcToken to dstToken
-        uint256 amount = KyberNetworkProxy(kyberProxy).trade{
+        uint256 amount = kyberProxy.trade{
             value: srcAmount
         }(
             srcToken,

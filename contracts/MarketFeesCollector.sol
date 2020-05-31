@@ -7,6 +7,8 @@ import "./dex/IConverter.sol";
 
 contract MarketFeesCollector is Ownable {
 
+    event FeesReceived(address from, uint amount);
+
     event CollectedFeesBurned(
         address indexed callingAddr,
         uint256 etherBalance,
@@ -37,6 +39,10 @@ contract MarketFeesCollector is Ownable {
      * burnCollectedFees:
      */
     function burnCollectedFees() public {
+        require(
+            address(feesConverter) != address(0),
+            "MarketFeesCollector: converter unavailable"
+        );
 
         uint256 totalBalance = address(this).balance;
         uint256 totalConverted = feesConverter.burn{
@@ -48,5 +54,9 @@ contract MarketFeesCollector is Ownable {
             totalBalance,
             totalConverted
         );
+    }
+
+    receive() external payable {
+        emit FeesReceived(msg.sender, msg.value);
     }
 }

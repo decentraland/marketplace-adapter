@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 
 pragma solidity ^0.6.8;
 
@@ -7,16 +7,11 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 
 // mock class using ERC721
 contract ERC721Mock is ERC721 {
-    constructor (
-        address _to,
-        uint256 _tokenId
-    )
-        public ERC721("MOCK721", "MOCK721")
-    {
-        _mint(_to, _tokenId);
+    constructor () public ERC721("MOCK721", "MOCK721") {
+
     }
 
-    function transfer(address _from, address _to, uint256 _tokenId) public {
-        _transfer(_from, _to, _tokenId);
+    function mint(address _to, uint256 _tokenId) public {
+        _mint(_to, _tokenId);
     }
 }

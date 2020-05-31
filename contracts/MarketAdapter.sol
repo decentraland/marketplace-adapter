@@ -26,7 +26,7 @@ contract MarketAdapter is Ownable, ReentrancyGuard, IERC721Receiver {
     event AdapterFeeChange(uint256 previousFee, uint256 newFee);
 
     // Allowed map of marketplaces
-    mapping (address => bool) private whitelistedMarkets;
+    mapping (address => bool) public whitelistedMarkets;
 
     // Order execution fee in a 0 - 1000 basis
     uint256 public adapterTransactionFee = 0;
@@ -59,10 +59,6 @@ contract MarketAdapter is Ownable, ReentrancyGuard, IERC721Receiver {
     {
         whitelistedMarkets[_marketplace] = _action;
         emit MarketplaceAllowance(_marketplace, _action);
-    }
-
-    function isMarketplaceAllowed(address _marketplace) public view returns (bool) {
-        return whitelistedMarkets[_marketplace];
     }
 
     /**
@@ -122,13 +118,11 @@ contract MarketAdapter is Ownable, ReentrancyGuard, IERC721Receiver {
         uint256 preCallBalance = address(this).balance;
 
         // execute buy order in destination marketplace
-        (bool success, ) = _marketplace.call{
-            value: relayedOrderValue
-        }(
+        (bool success, ) = _marketplace.call{ value: relayedOrderValue }(
             _encodedCallData
         );
 
-        require(success, "MarketAdapter: failed to execute buy order");
+        require(success, "MarketAdapter: marketplace failed to execute buy order");
 
         require(
             address(this).balance == preCallBalance.sub(relayedOrderValue),
@@ -140,10 +134,11 @@ contract MarketAdapter is Ownable, ReentrancyGuard, IERC721Receiver {
             "MarketAdapter: tokenId not transfered"
         );
 
-        // Send order fee to Collector. Reverts on failure
-        if (adapterFeesCollector != address(0)) {
-            adapterFeesCollector.transfer(
-                transactionFee.add(address(this).balance)
+        // Send order balance to Collector. Reverts on failure
+        if (adapterFeesCollector != address(0) && address(this).balance > 0) {
+            require(
+                adapterFeesCollector.send(address(this).balance),
+                "MarketAdapter: error sending fees to collector"
             );
         }
 

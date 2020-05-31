@@ -3,18 +3,8 @@
 pragma solidity ^0.6.8;
 
 import "./IConverter.sol";
+import "./IUniswapV2Router01.sol";
 
-
-interface IUniswapV2Router01 {
-    function WETH() external pure returns (address);
-    function swapExactETHForTokens(
-        uint amountOutMin,
-        address[] calldata path,
-        address to,
-        uint deadline
-    )
-        external payable returns (uint[] memory amounts);
-}
 
 contract UniswapV2Converter is IConverter {
 
