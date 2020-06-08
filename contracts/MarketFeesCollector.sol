@@ -7,8 +7,13 @@ import "./ConverterManager.sol";
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 
+import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20Burnable.sol";
+
 
 contract MarketFeesCollector is Ownable, ConverterManager {
+
+    using SafeERC20 for IERC20;
 
     event FeesReceived(address from, uint256 amount);
     event ReserveTokenChanged(address indexed token);
@@ -59,11 +64,21 @@ contract MarketFeesCollector is Ownable, ConverterManager {
             reserveToken
         );
 
-        // Burn tokens by transfer to address(0)
-        reserveToken.transfer(
-            address(0),
+        /*
+         * Calls a burn(uint) interface if implemented.
+         *  fallbacks to a safeTransfer()
+         */
+
+        bytes memory encodedParams = abi.encodeWithSelector(
+            ERC20Burnable.burn.selector,
             totalConverted
         );
+
+        (bool success,) = address(reserveToken).call(encodedParams);
+
+        if (!success) {
+            reserveToken.safeTransfer(address(0), totalConverted);
+        }
 
         emit CollectedFeesBurned(
             msg.sender,

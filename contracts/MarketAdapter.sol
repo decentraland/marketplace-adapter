@@ -22,8 +22,8 @@ contract MarketAdapter is
     ConverterManager
 {
 
-    using SafeERC20 for IERC20;
     using SafeMath for uint256;
+    using SafeERC20 for IERC20;
 
     event ExecutedOrder(
         address indexed registry,

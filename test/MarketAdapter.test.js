@@ -29,12 +29,18 @@ describe('MarketAdapter', function() {
 
     // Create a marketplace adapter
     this.marketAdapter = await MarketAdapter.new(
-      constants.ZERO_ADDRESS, { from: owner }
+      constants.ZERO_ADDRESS,
+      constants.ZERO_ADDRESS, {
+        from: owner
+      }
     );
 
     // Create a Fees Collector
     this.marketFeesCollector = await MarketFeesCollector.new(
-      constants.ZERO_ADDRESS, { from: owner }
+      constants.ZERO_ADDRESS,
+      constants.ZERO_ADDRESS, {
+        from: owner
+      }
     )
   });
 
