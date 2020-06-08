@@ -2,58 +2,63 @@
 
 pragma solidity ^0.6.8;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-
 import "./IConverter.sol";
 import "./IKyberNetworkProxy.sol";
+
+import "@openzeppelin/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 
 contract KyberConverter is IConverter {
 
+    using SafeMath for uint256;
+
     IKyberNetworkProxy private immutable kyberProxy;
 
-    IERC20 private immutable srcToken;
-    IERC20 private immutable dstToken;
-
     /**
-     * @param _dstToken ERC20 token address used on the final exchange pair
      * @param _kyberProxy KyberProxy address.
      */
-    constructor(
-        address _dstToken,
-        address _kyberProxy
-    )
-        public
-    {
-        srcToken = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE); // ETH
-        dstToken = IERC20(_dstToken);
-
+    constructor(address _kyberProxy) public {
         kyberProxy = IKyberNetworkProxy(_kyberProxy);
     }
 
-    /**
-     * @dev Trade total ether balance for dstToken and burns
-     *  the resulting tokens by sending them to address(0)
-     */
-    function burn() public payable override returns (uint256) {
-
-        uint256 srcAmount = address(this).balance;
-
-        // Trade srcAmount from srcToken to dstToken
-        uint256 amount = kyberProxy.trade{
-            value: srcAmount
-        }(
-            srcToken,
-            srcAmount,
-            dstToken,
-            address(0),
-            0,
-            0,
-            address(0)
+    function calcEtherToToken(
+        IERC20 _dstToken,
+        uint256 _etherAmount
+    )
+        public view override returns (uint256)
+    {
+        // check expected rate for this token -> eth pair
+        (uint256 rate, ) = kyberProxy.getExpectedRate(
+            IERC20(0x00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee),
+            IERC20(_dstToken),
+            _etherAmount
         );
 
-        require(address(this).balance == 0, "KyberConverter: unable to convert total balance");
+        // return the token amount in _dstToken units
+        return _etherAmount.mul(rate).div(1e18);
+    }
 
-        return amount;
+    function swapTokenToEther(
+        IERC20 _srcToken,
+        uint256 _srcAmount
+    )
+        public override returns (uint256)
+    {
+        return kyberProxy.swapTokenToEther(
+            IERC20(_srcToken), _srcAmount, 0
+        );
+    }
+
+    function swapEtherToToken(
+        IERC20 _dstToken
+    )
+        payable public override returns (uint256)
+    {
+        return kyberProxy.swapEtherToToken{ value: msg.value }(_dstToken, 0);
+    }
+
+    receive() external payable {
+        //
     }
 }

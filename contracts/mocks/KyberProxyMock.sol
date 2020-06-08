@@ -8,17 +8,33 @@ import "../dex/IKyberNetworkProxy.sol";
 // Mock KyberProxy
 contract KyberProxyMock is IKyberNetworkProxy {
 
-    function trade(
+    function getExpectedRate(
         IERC20,
-        uint,
         IERC20,
-        address,
-        uint,
-        uint,
-        address
+        uint256
     )
-        public payable override returns (uint256)
+        public view override returns (uint256 expectedRate, uint256 slippageRate)
+    {
+        expectedRate = 1;
+        slippageRate = 0;
+    }
+
+    function swapEtherToToken(
+       IERC20,
+       uint256
+    )
+        external payable override returns (uint256)
     {
         return msg.value;
+    }
+
+    function swapTokenToEther(
+        IERC20,
+        uint256 srcAmount,
+        uint256
+    )
+        external override returns (uint256)
+    {
+        return srcAmount;
     }
 }

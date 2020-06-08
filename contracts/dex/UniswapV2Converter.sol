@@ -3,60 +3,86 @@
 pragma solidity ^0.6.8;
 
 import "./IConverter.sol";
-import "./IUniswapV2Router01.sol";
+import "./IUniswapV2Router02.sol";
 
 
 contract UniswapV2Converter is IConverter {
 
-    IUniswapV2Router01 private immutable uniswapV2Router;
-
-    address private immutable srcToken;
-    address private immutable dstToken;
+    IUniswapV2Router02 private immutable uniswapV2Router;
 
     /**
-     * @param _dstToken ERC20 token address used on the final exchange pair
-     * @param _uniswapV2Router UniswapV2Router01 address.
+     * @param _uniswapV2Router UniswapV2Router02 address.
      */
-    constructor(
-        address _dstToken,
-        address _uniswapV2Router
-    )
-        public
-    {
-        IUniswapV2Router01 router = IUniswapV2Router01(_uniswapV2Router);
-
-        srcToken = router.WETH();
-        dstToken = _dstToken;
-
-        uniswapV2Router = router;
+    constructor(address _uniswapV2Router) public {
+        uniswapV2Router = IUniswapV2Router02(_uniswapV2Router);
     }
 
-    /**
-     * @dev Trade total ether balance for dstToken and burns
-     *  the resulting tokens by sending them to address(0)
-     */
-    function burn() public payable override returns (uint256) {
-
+    function calcEtherToToken(
+        IERC20 _dstToken,
+        uint256 _etherAmount
+    )
+        public view override returns (uint256)
+    {
         address[] memory path = new address[](2);
 
-        path[0] = srcToken;
-        path[1] = dstToken;
+        path[0] = uniswapV2Router.WETH();
+        path[1] = address(_dstToken);
 
-        uint256 srcAmount = address(this).balance;
+        uint256[] memory amounts = uniswapV2Router.getAmountsOut(
+            _etherAmount,
+            path
+        );
 
-        // https://uniswap.org/docs/v2/smart-contracts/router/#swapexactethfortokens
-        uint256[] memory amounts = uniswapV2Router.swapExactETHForTokens{
-            value: srcAmount
-        }(
+        return amounts[1];
+    }
+
+    function swapTokenToEther(
+        IERC20 _srcToken,
+        uint256 _srcAmount
+    )
+        public override returns (uint256)
+    {
+        address[] memory path = new address[](2);
+
+        path[0] = address(_srcToken);
+        path[1] = uniswapV2Router.WETH();
+
+        uint256[] memory amounts = uniswapV2Router.swapExactTokensForETH(
+            _srcAmount,
             0,
             path,
-            address(0),
+            msg.sender,
             block.timestamp
         );
 
-        require(address(this).balance == 0, "UniswapV2Converter: unable to convert total balance");
-
-        // returns total converted tokens
+        // return output token amount
         return amounts[1];
+    }
+
+    function swapEtherToToken(
+        IERC20 _dstToken
+    )
+        payable public override returns (uint256)
+    {
+        address[] memory path = new address[](2);
+
+        path[0] = uniswapV2Router.WETH();
+        path[1] = address(_dstToken);
+
+        uint256[] memory amounts = uniswapV2Router.swapExactETHForTokens{
+            value: msg.value
+        }(
+            0,
+            path,
+            msg.sender,
+            block.timestamp
+        );
+
+        // return output token amount
+        return amounts[1];
+    }
+
+    receive() external payable {
+        //
     }
 }

@@ -2,55 +2,72 @@
 
 pragma solidity ^0.6.8;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
 import "./dex/IConverter.sol";
+import "./ConverterManager.sol";
 
-contract MarketFeesCollector is Ownable {
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-    event FeesReceived(address from, uint amount);
+
+contract MarketFeesCollector is Ownable, ConverterManager {
+
+    event FeesReceived(address from, uint256 amount);
+    event ReserveTokenChanged(address indexed token);
 
     event CollectedFeesBurned(
         address indexed callingAddr,
+        address indexed burnedToken,
         uint256 etherBalance,
         uint256 burnedTokens
     );
 
-    event SetConverter(address indexed converter);
-
-    // configured fee
-    IConverter public feesConverter;
+    IERC20 public reserveToken;
 
     /**
      * @param _converter address of collected fees burner implementation
+     * @param _reserveToken address of ERC20 to exchange for the retained fees
      */
-    constructor(address _converter) Ownable() public {
+    constructor(
+        address _converter,
+        address _reserveToken
+    )
+        Ownable() public
+    {
         setConverter(_converter);
+        setReserveToken(_reserveToken);
+    }
+
+    function setReserveToken(address _reserveToken) public onlyOwner {
+        reserveToken = IERC20(_reserveToken);
+        emit ReserveTokenChanged(_reserveToken);
     }
 
     /**
-     * @param _converter address of collected fees burner implementation
+     * @dev Swaps contract balance to configured reserve in ERC20 token
+     *  and sends converted amount to address(0)
      */
-    function setConverter(address _converter) public onlyOwner {
-        feesConverter = IConverter(_converter);
-        emit SetConverter(_converter);
-    }
+    function burnCollectedFees() external {
 
-    /**
-     * burnCollectedFees:
-     */
-    function burnCollectedFees() public {
         require(
-            address(feesConverter) != address(0),
+            converterAddress != address(0),
             "MarketFeesCollector: converter unavailable"
         );
 
         uint256 totalBalance = address(this).balance;
-        uint256 totalConverted = feesConverter.burn{
+        uint256 totalConverted = IConverter(converterAddress).swapEtherToToken{
             value: totalBalance
-        }();
+        }(
+            reserveToken
+        );
+
+        // Burn tokens by transfer to address(0)
+        reserveToken.transfer(
+            address(0),
+            totalConverted
+        );
 
         emit CollectedFeesBurned(
             msg.sender,
+            address(reserveToken),
             totalBalance,
             totalConverted
         );

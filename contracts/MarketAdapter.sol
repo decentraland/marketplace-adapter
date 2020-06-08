@@ -7,10 +7,22 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+
+import "./ERC721Holder.sol";
+import "./ConverterManager.sol";
+
+import "./dex/IConverter.sol";
 
 
-contract MarketAdapter is Ownable, ReentrancyGuard, IERC721Receiver {
+contract MarketAdapter is
+    Ownable,
+    ReentrancyGuard,
+    ERC721Holder,
+    ConverterManager
+{
+
+    using SafeERC20 for IERC20;
     using SafeMath for uint256;
 
     event ExecutedOrder(
@@ -42,8 +54,14 @@ contract MarketAdapter is Ownable, ReentrancyGuard, IERC721Receiver {
      * @dev constructor
      * @param _collector address of the Fee Collector
      */
-    constructor(address payable _collector) Ownable() public {
-        adapterFeesCollector = _collector;
+    constructor(
+        address _converter,
+        address payable _collector
+    )
+        Ownable() public
+    {
+        setConverter(_converter);
+        setFeesCollector(_collector);
     }
 
     /**
@@ -55,7 +73,7 @@ contract MarketAdapter is Ownable, ReentrancyGuard, IERC721Receiver {
         address _marketplace,
         bool _action
     )
-        public onlyOwner
+        external onlyOwner
     {
         whitelistedMarkets[_marketplace] = _action;
         emit MarketplaceAllowance(_marketplace, _action);
@@ -74,13 +92,59 @@ contract MarketAdapter is Ownable, ReentrancyGuard, IERC721Receiver {
      * @dev Sets the adapter fees taken from every relayed order
      * @param _transactionFee in a 0 - ADAPTER_FEE_MAX basis
      */
-    function setAdapterFee(uint256 _transactionFee) public onlyOwner {
+    function setAdapterFee(uint256 _transactionFee) external onlyOwner {
         require(
             ADAPTER_FEE_MAX >= _transactionFee,
             "MarketAdapter: Invalid transaction fee"
         );
         emit AdapterFeeChange(adapterTransactionFee, _transactionFee);
         adapterTransactionFee = _transactionFee;
+    }
+
+    /**
+     * @dev Relays buy marketplace order. Uses the IConverter to
+     *  swap erc20 tokens to ethers and call buy() with the exact ether amount
+     * @param _orderAmount in ethers of the markeplace order
+     * @param _paymentToken ERC20 address of the token used to pay
+     * @param _registry NFT registry address
+     * @param _tokenId listed asset Id.
+     * @param _marketplace whitelisted marketplace listing the asset.
+     * @param _encodedCallData forwarded to whitelisted marketplace.
+     */
+    function buyWithToken(
+        uint256 _orderAmount,
+        IERC20 _paymentToken,
+        IERC721 _registry,
+        uint256 _tokenId,
+        address _marketplace,
+        bytes calldata _encodedCallData
+    )
+        external nonReentrant
+    {
+        IConverter converter = IConverter(converterAddress);
+
+        uint256 paymentTokenAmount = converter.calcEtherToToken(
+            _paymentToken,
+            _orderAmount
+        );
+
+        require(paymentTokenAmount > 0, "MarketAdapter: payment token amount invalid");
+
+        // Get Tokens from registry
+        _paymentToken.safeTransfer(address(this), paymentTokenAmount);
+
+        // Aprove converter for this paymentTokenAmount transfer
+        _paymentToken.safeApprove(converterAddress, paymentTokenAmount);
+
+        // Get ethers from converter
+        converter.swapTokenToEther(_paymentToken, paymentTokenAmount);
+
+        this.buy{ value: _orderAmount }(
+            _registry,
+            _tokenId,
+            _marketplace,
+            _encodedCallData
+        );
     }
 
     /**
@@ -155,19 +219,5 @@ contract MarketAdapter is Ownable, ReentrancyGuard, IERC721Receiver {
             totalOrderValue,
             transactionFee
         );
-    }
-
-    /**
-     * @dev Called uppon after a ERC721 transfer to this contract.
-     */
-    function onERC721Received(
-        address,
-        address,
-        uint256,
-        bytes memory
-    )
-        public virtual override returns (bytes4)
-    {
-        return this.onERC721Received.selector;
     }
 }
