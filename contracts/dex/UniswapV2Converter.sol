@@ -89,8 +89,4 @@ contract UniswapV2Converter is IConverter {
         // return output token amount
         return amounts[1];
     }
-
-    receive() external payable {
-        //
-    }
 }
