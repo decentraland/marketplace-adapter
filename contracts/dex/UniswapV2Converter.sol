@@ -5,8 +5,12 @@ pragma solidity ^0.6.8;
 import "./IConverter.sol";
 import "./IUniswapV2Router02.sol";
 
+import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+
 
 contract UniswapV2Converter is IConverter {
+
+    using SafeERC20 for IERC20;
 
     IUniswapV2Router02 private immutable uniswapV2Router;
 
@@ -42,6 +46,10 @@ contract UniswapV2Converter is IConverter {
     )
         public override returns (uint256)
     {
+        // Get Tokens from caller and aprove exchange
+        _srcToken.safeTransferFrom(msg.sender, address(this), _srcAmount);
+        _srcToken.safeApprove(address(uniswapV2Router), _srcAmount);
+
         address[] memory path = new address[](2);
 
         path[0] = address(_srcToken);

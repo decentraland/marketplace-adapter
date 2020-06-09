@@ -13,16 +13,14 @@ interface IKyberNetworkProxy {
     )
         external view returns (uint256 expectedRate, uint256 slippageRate);
 
-    function swapEtherToToken(
-       IERC20 token,
-       uint256 minConversionRate
+    function trade(
+        IERC20 src,
+        uint256 srcAmount,
+        IERC20 dest,
+        address destAddress,
+        uint256 maxDestAmount,
+        uint256 minConversionRate,
+        address walletId
     )
         external payable returns (uint256);
-
-    function swapTokenToEther(
-        IERC20 token,
-        uint256 srcAmount,
-        uint256 minConversionRate
-    )
-        external returns (uint256);
 }

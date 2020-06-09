@@ -41,7 +41,7 @@ contract MarketAdapter is
     mapping (address => bool) public whitelistedMarkets;
 
     // Order execution fee in a 0 - 1000 basis
-    uint256 public adapterTransactionFee = 0;
+    uint256 public adapterTransactionFee;
 
     // Max allowed fee for the adapter
     uint256 public constant ADAPTER_FEE_MAX = 150000; // 15%
@@ -56,12 +56,15 @@ contract MarketAdapter is
      */
     constructor(
         address _converter,
-        address payable _collector
+        address payable _collector,
+        uint256 _adapderFee
     )
         Ownable() public
     {
         setConverter(_converter);
         setFeesCollector(_collector);
+
+        setAdapterFee(_adapderFee);
     }
 
     /**
@@ -92,7 +95,7 @@ contract MarketAdapter is
      * @dev Sets the adapter fees taken from every relayed order
      * @param _transactionFee in a 0 - ADAPTER_FEE_MAX basis
      */
-    function setAdapterFee(uint256 _transactionFee) external onlyOwner {
+    function setAdapterFee(uint256 _transactionFee) public onlyOwner {
         require(
             ADAPTER_FEE_MAX >= _transactionFee,
             "MarketAdapter: Invalid transaction fee"
@@ -103,7 +106,7 @@ contract MarketAdapter is
 
     /**
      * @dev Relays buy marketplace order. Uses the IConverter to
-     *  swap erc20 tokens to ethers and call buy() with the exact ether amount
+     *  swap erc20 tokens to ethers and call _buy() with the exact ether amount
      * @param _orderAmount in ethers of the markeplace order
      * @param _paymentToken ERC20 address of the token used to pay
      * @param _registry NFT registry address
@@ -111,7 +114,7 @@ contract MarketAdapter is
      * @param _marketplace whitelisted marketplace listing the asset.
      * @param _encodedCallData forwarded to whitelisted marketplace.
      */
-    function buyWithToken(
+    function buy(
         uint256 _orderAmount,
         IERC20 _paymentToken,
         IERC721 _registry,
@@ -131,15 +134,20 @@ contract MarketAdapter is
         require(paymentTokenAmount > 0, "MarketAdapter: payment token amount invalid");
 
         // Get Tokens from registry
-        _paymentToken.safeTransfer(address(this), paymentTokenAmount);
+        _paymentToken.safeTransferFrom(
+            msg.sender,
+            address(this),
+            paymentTokenAmount
+        );
 
         // Aprove converter for this paymentTokenAmount transfer
         _paymentToken.safeApprove(converterAddress, paymentTokenAmount);
 
-        // Get ethers from converter
+        // // Get ethers from converter
         converter.swapTokenToEther(_paymentToken, paymentTokenAmount);
 
-        this.buy{ value: _orderAmount }(
+        _buy(
+            _orderAmount,
             _registry,
             _tokenId,
             _marketplace,
@@ -159,24 +167,41 @@ contract MarketAdapter is
         IERC721 _registry,
         uint256 _tokenId,
         address _marketplace,
+        bytes calldata _encodedCallData
+    )
+        external payable nonReentrant
+    {
+        require(msg.value > 0, "MarketAdapter: invalid order value");
+
+        _buy(
+            msg.value,
+            _registry,
+            _tokenId,
+            _marketplace,
+            _encodedCallData
+        );
+    }
+
+    function _buy(
+        uint256 _orderAmount,
+        IERC721 _registry,
+        uint256 _tokenId,
+        address _marketplace,
         bytes memory _encodedCallData
     )
-        public payable nonReentrant
+        private
     {
         require(
             whitelistedMarkets[_marketplace],
             "MarketAdapter: dest market is not whitelisted"
         );
 
-        require(msg.value > 0, "MarketAdapter: invalid order value");
-
         // Get adapter fees from total order value
-        uint256 totalOrderValue = msg.value;
-        uint256 transactionFee = totalOrderValue
+        uint256 transactionFee = _orderAmount
             .mul(adapterTransactionFee)
             .div(ADAPTER_FEE_PRECISION);
 
-        uint256 relayedOrderValue = totalOrderValue.sub(transactionFee);
+        uint256 relayedOrderValue = _orderAmount.sub(transactionFee);
 
         // Save contract balance before call to marketplace
         uint256 preCallBalance = address(this).balance;
@@ -216,8 +241,12 @@ contract MarketAdapter is
             address(_registry),
             _tokenId,
             _marketplace,
-            totalOrderValue,
+            _orderAmount,
             transactionFee
         );
+    }
+
+    receive() external payable {
+        //
     }
 }

@@ -8,11 +8,16 @@ const {
 } = require('@openzeppelin/test-helpers');
 
 const MarketAdapter = contract.fromArtifact('MarketAdapter');
+const KyberProxyMock = contract.fromArtifact('KyberProxyMock');
+const UniswapRouterMock = contract.fromArtifact('UniswapRouterMock');
+const KyberConverter = contract.fromArtifact('KyberConverter');
+const UniswapV2Converter = contract.fromArtifact('UniswapV2Converter');
 const MarketFeesCollector = contract.fromArtifact('MarketFeesCollector');
 
 // Load Mocks
-const MarketplaceMock = contract.fromArtifact('MarketplaceMock');
 const ERC721Mock = contract.fromArtifact('ERC721Mock');
+const ERC20MockBase = contract.fromArtifact('ERC20MockBase');
+const MarketplaceMock = contract.fromArtifact('MarketplaceMock');
 
 require('chai').should();
 
@@ -21,6 +26,10 @@ describe('MarketAdapter', function() {
   const [ owner, someone, nonWhitelistedMarket ] = accounts;
 
   before(async function () {
+
+    // create a test ERC20 for the payments
+    this.reserveTokenMock = await ERC20MockBase.new({ from: owner });
+
     // create a mock marketplace and assing a mock token
     this.marketplaceMock = await MarketplaceMock.new({ from: owner });
 
@@ -28,9 +37,12 @@ describe('MarketAdapter', function() {
     this.erc721RegistryMock = await ERC721Mock.new({ from: owner });
 
     // Create a marketplace adapter
+    this.marketAdapterFees = 0;
     this.marketAdapter = await MarketAdapter.new(
       constants.ZERO_ADDRESS,
-      constants.ZERO_ADDRESS, {
+      constants.ZERO_ADDRESS,
+      this.marketAdapterFees,
+      {
         from: owner
       }
     );
@@ -129,11 +141,11 @@ describe('MarketAdapter', function() {
   });
 
   // Buy method
-  describe('Calling buy_adapter()', function() {
+  describe('Calling adapter buy()', function() {
 
     before(async function() {
-      // Mint tokens to marketplace
-      for (const tokenId of ['1000', '2000', '3000']) {
+      // Mint test tokens to marketplace
+      for (const tokenId of ['1000', '2000', '3000', '4000', '5000']) {
         await this.erc721RegistryMock.mint(
           this.marketplaceMock.address, tokenId,
         );
@@ -152,182 +164,271 @@ describe('MarketAdapter', function() {
         .div(marketFeeBasis);
     });
 
-    it(`emits ExecutedOrder with onERC721Received callback`, async function() {
+    describe('Payment in ethers', function() {
 
-      const tokenId = '1000';
+      it(`emits ExecutedOrder with onERC721Received callback`, async function() {
 
-      // encode buy(_tokenId, _registry) for calling the marketplace mock
-      const encodedCallData = this.marketplaceMock.contract.methods.buy(
-        tokenId,
-        this.erc721RegistryMock.address,
-      ).encodeABI();
+        const tokenId = '1000';
 
-      const receipt = await this.marketAdapter.buy(
-        this.erc721RegistryMock.address,
-        tokenId,
-        this.marketplaceMock.address,
-        encodedCallData, {
-          value: this.orderValue,
-          from: someone,
-        },
-      );
+        // encode buy(_tokenId, _registry) for calling the marketplace mock
+        const encodedCallData = this.marketplaceMock.contract.methods.buy(
+          tokenId,
+          this.erc721RegistryMock.address,
+        ).encodeABI();
 
-      expectEvent(receipt, 'ExecutedOrder', {
-        registry: this.erc721RegistryMock.address,
-        tokenId: tokenId,
-        marketplace: this.marketplaceMock.address,
-        orderValue: this.orderValue,
-        orderFees: this.orderFees,
+        const receipt = await this.marketAdapter.methods['buy(address,uint256,address,bytes)'](
+          this.erc721RegistryMock.address,
+          tokenId,
+          this.marketplaceMock.address,
+          encodedCallData, {
+            value: this.orderValue,
+            from: someone,
+          },
+        );
+
+        expectEvent(receipt, 'ExecutedOrder', {
+          registry: this.erc721RegistryMock.address,
+          tokenId: tokenId,
+          marketplace: this.marketplaceMock.address,
+          orderValue: this.orderValue,
+          orderFees: this.orderFees,
+        });
+      });
+
+      it(`emits ExecutedOrder without onERC721Received callback`, async function() {
+
+        const tokenId = '2000';
+
+        // encode buyAlt(_tokenId, _registry) for calling the marketplace mock
+        const encodedCallData = this.marketplaceMock.contract.methods.buyAlt(
+          tokenId,
+          this.erc721RegistryMock.address,
+        ).encodeABI();
+
+        const receipt = await this.marketAdapter.methods['buy(address,uint256,address,bytes)'](
+          this.erc721RegistryMock.address,
+          tokenId,
+          this.marketplaceMock.address,
+          encodedCallData, {
+            value: this.orderValue,
+            from: someone,
+          },
+        );
+
+        expectEvent(receipt, 'ExecutedOrder', {
+          registry: this.erc721RegistryMock.address,
+          tokenId: tokenId,
+          marketplace: this.marketplaceMock.address,
+          orderValue: this.orderValue,
+          orderFees: this.orderFees,
+        });
+      });
+
+      it(`reverts non-whitelisted marketplace`, async function() {
+        const tokenId = '3000';
+
+        // encode buy(_tokenId, _registry) for calling the marketplace mock
+        const encodedCallData = this.marketplaceMock.contract.methods.buy(
+          tokenId,
+          this.erc721RegistryMock.address,
+        ).encodeABI();
+
+        await expectRevert(
+          this.marketAdapter.methods['buy(address,uint256,address,bytes)'](
+            this.erc721RegistryMock.address,
+            tokenId,
+            nonWhitelistedMarket, // not whitelisted
+            encodedCallData, {
+              value: this.orderValue,
+              from: someone,
+            },
+          ),
+          "MarketAdapter: dest market is not whitelisted"
+        );
+      });
+
+      it(`reverts msg.value invalid`, async function() {
+        const tokenId = '3000';
+
+        // encode buy(_tokenId, _registry) for calling the marketplace mock
+        const encodedCallData = this.marketplaceMock.contract.methods.buy(
+          tokenId,
+          this.erc721RegistryMock.address,
+        ).encodeABI();
+
+        await expectRevert(
+          this.marketAdapter.methods['buy(address,uint256,address,bytes)'](
+            this.erc721RegistryMock.address,
+            tokenId,
+            this.marketplaceMock.address,
+            encodedCallData, {
+              value: 0, // invalid order value
+              from: someone,
+            },
+          ),
+          "MarketAdapter: invalid order value"
+        );
+      });
+
+      it(`reverts failed to execute order`, async function() {
+        const tokenId = '3000';
+
+        // encode buyRevert(_tokenId, _registry) for calling the marketplace mock
+        const encodedCallData = this.marketplaceMock.contract.methods.buyRevert(
+          tokenId,
+          this.erc721RegistryMock.address,
+        ).encodeABI();
+
+        await expectRevert(
+          this.marketAdapter.methods['buy(address,uint256,address,bytes)'](
+            this.erc721RegistryMock.address,
+            tokenId,
+            this.marketplaceMock.address,
+            encodedCallData, {
+              value: this.orderValue,
+              from: someone,
+            },
+          ),
+          "MarketAdapter: marketplace failed to execute buy order"
+        );
+      });
+
+      it(`reverts balance mistmach on refund`, async function() {
+        const tokenId = '3000';
+
+        // encode buyRefund(_tokenId, _registry) for calling the marketplace mock
+        const encodedCallData = this.marketplaceMock.contract.methods.buyRefund(
+          tokenId,
+          this.erc721RegistryMock.address,
+        ).encodeABI();
+
+        await expectRevert(
+          this.marketAdapter.methods['buy(address,uint256,address,bytes)'](
+            this.erc721RegistryMock.address,
+            tokenId,
+            this.marketplaceMock.address,
+            encodedCallData, {
+              value: this.orderValue,
+              from: someone,
+            },
+          ),
+          "MarketAdapter: postcall balance mismatch"
+        );
+      });
+
+      it(`reverts token not transfered`, async function() {
+        const tokenId = '3000';
+
+        // encode buyNotTransfer(_tokenId, _registry) for calling the marketplace mock
+        const encodedCallData = this.marketplaceMock.contract.methods.buyNotTransfer(
+          tokenId,
+          this.erc721RegistryMock.address,
+        ).encodeABI();
+
+        await expectRevert(
+          this.marketAdapter.methods['buy(address,uint256,address,bytes)'](
+            this.erc721RegistryMock.address,
+            tokenId,
+            this.marketplaceMock.address,
+            encodedCallData, {
+              value: this.orderValue,
+              from: someone,
+            },
+          ),
+          "MarketAdapter: tokenId not transfered"
+        );
       });
     });
 
-    it(`emits ExecutedOrder without onERC721Received callback`, async function() {
+    describe('Payment in ERC20', function() {
 
-      const tokenId = '2000';
-
-      // encode buyAlt(_tokenId, _registry) for calling the marketplace mock
-      const encodedCallData = this.marketplaceMock.contract.methods.buyAlt(
-        tokenId,
-        this.erc721RegistryMock.address,
-      ).encodeABI();
-
-      const receipt = await this.marketAdapter.buy(
-        this.erc721RegistryMock.address,
-        tokenId,
-        this.marketplaceMock.address,
-        encodedCallData, {
-          value: this.orderValue,
-          from: someone,
-        },
-      );
-
-      expectEvent(receipt, 'ExecutedOrder', {
-        registry: this.erc721RegistryMock.address,
-        tokenId: tokenId,
-        marketplace: this.marketplaceMock.address,
-        orderValue: this.orderValue,
-        orderFees: this.orderFees,
+      before(async function () {
+        this.kyberProxy = await KyberProxyMock.new({ from: owner });
+        this.uniswapProxy = await UniswapRouterMock.new({ from: owner });
       });
-    });
 
-    it(`reverts non-whitelisted marketplace`, async function() {
-      const tokenId = '3000';
+      testPositiveTokenIdBuy = async function (context, tokenId) {
 
-      // encode buy(_tokenId, _registry) for calling the marketplace mock
-      const encodedCallData = this.marketplaceMock.contract.methods.buy(
-        tokenId,
-        this.erc721RegistryMock.address,
-      ).encodeABI();
+        // Mint transaction sender ERC20 test tokens
+        await context.reserveTokenMock.mint(
+          someone,
+          context.orderValue,
+        );
 
-      await expectRevert(
-        this.marketAdapter.buy(
-          this.erc721RegistryMock.address,
+        // aprove MarketAdapter transfer orderValue in reserveToken
+        await context.reserveTokenMock.approve(
+          context.marketAdapter.address,
+          context.orderValue, { from: someone }
+        );
+
+        // encode buy(_tokenId, _registry) for calling the marketplace mock
+        const encodedCallData = context.marketplaceMock.contract.methods.buy(
           tokenId,
-          nonWhitelistedMarket, // not whitelisted
+          context.erc721RegistryMock.address,
+        ).encodeABI();
+
+        const receipt = await context.marketAdapter.methods['buy(uint256,address,address,uint256,address,bytes)'](
+          context.orderValue, // orderAmount
+          context.reserveTokenMock.address, // paymentToken
+          context.erc721RegistryMock.address,
+          tokenId,
+          context.marketplaceMock.address,
           encodedCallData, {
-            value: this.orderValue,
             from: someone,
           },
-        ),
-        "MarketAdapter: dest market is not whitelisted"
-      );
-    });
+        );
 
-    it(`reverts msg.value invalid`, async function() {
-      const tokenId = '3000';
+        expectEvent(receipt, 'ExecutedOrder', {
+          registry: context.erc721RegistryMock.address,
+          tokenId: tokenId,
+          marketplace: context.marketplaceMock.address,
+          orderValue: context.orderValue,
+          orderFees: context.orderFees,
+        });
+      };
 
-      // encode buy(_tokenId, _registry) for calling the marketplace mock
-      const encodedCallData = this.marketplaceMock.contract.methods.buy(
-        tokenId,
-        this.erc721RegistryMock.address,
-      ).encodeABI();
+      describe('Using Kyber', function() {
 
-      await expectRevert(
-        this.marketAdapter.buy(
-          this.erc721RegistryMock.address,
-          tokenId,
-          this.marketplaceMock.address,
-          encodedCallData, {
-            value: 0, // invalid order value
-            from: someone,
-          },
-        ),
-        "MarketAdapter: invalid order value"
-      );
-    });
+        before(async function() {
+          this.converter = await KyberConverter.new(
+            this.kyberProxy.address, { from: owner }
+          );
 
-    it(`reverts failed to execute order`, async function() {
-      const tokenId = '3000';
+          await this.marketAdapter.setConverter(
+            this.converter.address, { from: owner }
+          );
+          // Send fake proxy some ethers
+          await this.kyberProxy.send(this.orderValue);
+        });
 
-      // encode buyRevert(_tokenId, _registry) for calling the marketplace mock
-      const encodedCallData = this.marketplaceMock.contract.methods.buyRevert(
-        tokenId,
-        this.erc721RegistryMock.address,
-      ).encodeABI();
+        it(`emits ExecutedOrder with onERC721Received callback`, async function() {
+          await testPositiveTokenIdBuy(this, '4000');
+        });
+      });
 
-      await expectRevert(
-        this.marketAdapter.buy(
-          this.erc721RegistryMock.address,
-          tokenId,
-          this.marketplaceMock.address,
-          encodedCallData, {
-            value: this.orderValue,
-            from: someone,
-          },
-        ),
-        "MarketAdapter: marketplace failed to execute buy order"
-      );
-    });
+      describe('Using Uniswap', function() {
 
-    /*
-     * MarketAdapter does not implements receive() nor fallback()
-     * We're testing case using selfdestruct() in the destination of the call
-     * very weird case.
-     */
-    it(`reverts balance mistmach on refund`, async function() {
-      const tokenId = '3000';
+        before(async function() {
+          this.converter = await UniswapV2Converter.new(
+            this.uniswapProxy.address, { from: owner }
+          );
 
-      // encode buyRefund(_tokenId, _registry) for calling the marketplace mock
-      const encodedCallData = this.marketplaceMock.contract.methods.buyRefund(
-        tokenId,
-        this.erc721RegistryMock.address,
-      ).encodeABI();
+          // set converter
+          await this.marketAdapter.setConverter(
+            this.converter.address, { from: owner }
+          );
 
-      await expectRevert(
-        this.marketAdapter.buy(
-          this.erc721RegistryMock.address,
-          tokenId,
-          this.marketplaceMock.address,
-          encodedCallData, {
-            value: this.orderValue,
-            from: someone,
-          },
-        ),
-        "MarketAdapter: postcall balance mismatch"
-      );
-    });
+          // Send fake proxy some ethers
+          await this.uniswapProxy.send(this.orderValue);
+        });
 
-    it(`reverts token not transfered`, async function() {
-      const tokenId = '3000';
+        it(`emits ExecutedOrder with onERC721Received callback`, async function() {
+          await testPositiveTokenIdBuy(this, '5000');
+        });
 
-      // encode buyNotTransfer(_tokenId, _registry) for calling the marketplace mock
-      const encodedCallData = this.marketplaceMock.contract.methods.buyNotTransfer(
-        tokenId,
-        this.erc721RegistryMock.address,
-      ).encodeABI();
+      });
 
-      await expectRevert(
-        this.marketAdapter.buy(
-          this.erc721RegistryMock.address,
-          tokenId,
-          this.marketplaceMock.address,
-          encodedCallData, {
-            value: this.orderValue,
-            from: someone,
-          },
-        ),
-        "MarketAdapter: tokenId not transfered"
-      );
+
     });
 
   });

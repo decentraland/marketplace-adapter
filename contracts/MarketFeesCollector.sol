@@ -64,6 +64,8 @@ contract MarketFeesCollector is Ownable, ConverterManager {
             reserveToken
         );
 
+        require(totalConverted > 0, "MarketFeesCollector: conversion error");
+
         /*
          * Calls a burn(uint) interface if implemented.
          *  fallbacks to a safeTransfer()
