@@ -15,7 +15,7 @@ contract ConverterManager is Ownable {
     /**
      * @param _converter address of collected fees burner implementation
      */
-    function setConverter(address _converter) public onlyOwner {
+    function setConverter(address _converter) public virtual onlyOwner {
         converterAddress = _converter;
         emit SetConverter(_converter);
     }

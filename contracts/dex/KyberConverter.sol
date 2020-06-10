@@ -22,6 +22,10 @@ contract KyberConverter is IConverter {
         kyberProxy = IKyberNetworkProxy(_kyberProxy);
     }
 
+    function getTrader() public view override returns (address) {
+        return address(kyberProxy);
+    }
+
     function calcEtherToToken(
         IERC20 _dstToken,
         uint256 _etherAmount

@@ -21,6 +21,10 @@ contract UniswapV2Converter is IConverter {
         uniswapV2Router = IUniswapV2Router02(_uniswapV2Router);
     }
 
+    function getTrader() public view override returns (address) {
+        return address(uniswapV2Router);
+    }
+
     function calcEtherToToken(
         IERC20 _dstToken,
         uint256 _etherAmount

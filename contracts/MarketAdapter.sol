@@ -50,6 +50,9 @@ contract MarketAdapter is
     // MarketFeesCollector address
     address payable public adapterFeesCollector;
 
+    //
+    address private allowedEthSender;
+
     /**
      * @dev constructor
      * @param _collector address of the Fee Collector
@@ -66,6 +69,20 @@ contract MarketAdapter is
 
         setAdapterFee(_adapderFee);
     }
+
+    function setConverter(address _converter) public override onlyOwner {
+
+        // set allowed eth sender from this converter
+        if (_converter != address(0)) {
+            allowedEthSender = IConverter(_converter).getTrader();
+
+        } else {
+            delete allowedEthSender;
+        }
+
+        super.setConverter(_converter);
+    }
+
 
     /**
      * @dev Sets whitelisting status for a marketplace
@@ -247,6 +264,8 @@ contract MarketAdapter is
     }
 
     receive() external payable {
-        //
+        require(
+            msg.sender == allowedEthSender, "MarketAdapter: sender invalid"
+        );
     }
 }
