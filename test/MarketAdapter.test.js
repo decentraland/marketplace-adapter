@@ -2,6 +2,7 @@ const { accounts, contract } = require('@openzeppelin/test-environment');
 
 const {
   BN,           // Big Number support
+  balance,      // Get balance from account
   constants,    // Common constants, like the zero address and largest integers
   expectEvent,  // Assertions for emitted events
   expectRevert, // Assertions for transactions that should fail
@@ -145,7 +146,7 @@ describe('MarketAdapter', function() {
 
     before(async function() {
       // Mint test tokens to marketplace
-      for (const tokenId of ['1000', '2000', '3000', '4000', '5000']) {
+      for (const tokenId of ['1000', '2000', '3000', '4000', '5000', '6000']) {
         await this.erc721RegistryMock.mint(
           this.marketplaceMock.address, tokenId,
         );
@@ -224,8 +225,35 @@ describe('MarketAdapter', function() {
         });
       });
 
-      it(`reverts non-whitelisted marketplace`, async function() {
+      it(`check fees sent after transaction`, async function() {
         const tokenId = '3000';
+
+        // encode buy(_tokenId, _registry) for calling the marketplace mock
+        const encodedCallData = this.marketplaceMock.contract.methods.buy(
+          tokenId,
+          this.erc721RegistryMock.address,
+        ).encodeABI();
+
+        const preBalance = await balance.current(this.marketAdapter.address);
+
+        const receipt = await this.marketAdapter.methods['buy(address,uint256,address,bytes)'](
+          this.erc721RegistryMock.address,
+          tokenId,
+          this.marketplaceMock.address,
+          encodedCallData, {
+            value: this.orderValue,
+            from: someone,
+          },
+        );
+
+        const postBalance = await balance.current(this.marketAdapter.address);
+
+        // Check balance is ok
+        postBalance.should.be.bignumber.equal(preBalance);
+      });
+
+      it(`reverts non-whitelisted marketplace`, async function() {
+        const tokenId = '4000';
 
         // encode buy(_tokenId, _registry) for calling the marketplace mock
         const encodedCallData = this.marketplaceMock.contract.methods.buy(
@@ -248,7 +276,7 @@ describe('MarketAdapter', function() {
       });
 
       it(`reverts msg.value invalid`, async function() {
-        const tokenId = '3000';
+        const tokenId = '4000';
 
         // encode buy(_tokenId, _registry) for calling the marketplace mock
         const encodedCallData = this.marketplaceMock.contract.methods.buy(
@@ -271,7 +299,7 @@ describe('MarketAdapter', function() {
       });
 
       it(`reverts failed to execute order`, async function() {
-        const tokenId = '3000';
+        const tokenId = '4000';
 
         // encode buyRevert(_tokenId, _registry) for calling the marketplace mock
         const encodedCallData = this.marketplaceMock.contract.methods.buyRevert(
@@ -294,7 +322,7 @@ describe('MarketAdapter', function() {
       });
 
       it(`reverts balance mistmach on refund`, async function() {
-        const tokenId = '3000';
+        const tokenId = '4000';
 
         // encode buyRefund(_tokenId, _registry) for calling the marketplace mock
         const encodedCallData = this.marketplaceMock.contract.methods.buyRefund(
@@ -317,7 +345,7 @@ describe('MarketAdapter', function() {
       });
 
       it(`reverts token not transfered`, async function() {
-        const tokenId = '3000';
+        const tokenId = '4000';
 
         // encode buyNotTransfer(_tokenId, _registry) for calling the marketplace mock
         const encodedCallData = this.marketplaceMock.contract.methods.buyNotTransfer(
@@ -402,7 +430,7 @@ describe('MarketAdapter', function() {
         });
 
         it(`emits ExecutedOrder with onERC721Received callback`, async function() {
-          await testPositiveTokenIdBuy(this, '4000');
+          await testPositiveTokenIdBuy(this, '5000');
         });
       });
 
@@ -423,7 +451,7 @@ describe('MarketAdapter', function() {
         });
 
         it(`emits ExecutedOrder with onERC721Received callback`, async function() {
-          await testPositiveTokenIdBuy(this, '5000');
+          await testPositiveTokenIdBuy(this, '6000');
         });
 
       });

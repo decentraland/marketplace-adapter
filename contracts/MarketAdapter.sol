@@ -21,7 +21,6 @@ contract MarketAdapter is
     ERC721Holder,
     ConverterManager
 {
-
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
