@@ -16,6 +16,7 @@ contract ERC20Mock is ERC20 {
     }
 }
 
+
 contract ERC20MockBase is ERC20Mock {
 
     function transfer(address _recipient, uint256 _amount) public virtual override returns (bool) {
@@ -47,6 +48,7 @@ contract ERC20MockBase is ERC20Mock {
         return true;
     }
 }
+
 
 contract ERC20MockBurnable is ERC20Mock, ERC20Burnable {
 

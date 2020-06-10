@@ -1,7 +1,7 @@
 require('@babel/register')
 require('@babel/polyfill')
 
-const HDWalletProvider = require('truffle-hdwallet-provider')
+const HDWalletProvider = require('@truffle/hdwallet-provider')
 
 const createWalletProvider = (mnemonic, rpcEndpoint) =>
   new HDWalletProvider(mnemonic, rpcEndpoint)
