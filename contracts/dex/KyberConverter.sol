@@ -15,6 +15,8 @@ contract KyberConverter is IConverter {
 
     IKyberNetworkProxy private immutable kyberProxy;
 
+    uint256 constant MAX_UINT_VALUE = 2**256 - 1;
+
     /**
      * @param _kyberProxy KyberProxy address.
      */
@@ -60,12 +62,16 @@ contract KyberConverter is IConverter {
             _srcAmount, // srcAmount
             IERC20(0x00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee), // dstToken
             msg.sender, // dstAddress
-            0, // maxDestAmount
+            MAX_UINT_VALUE, // maxDestAmount
             0, // minConversion Rate
             address(0) // walletId for fees sharing
         );
 
         require(dstTokenAmount > 0, "KyberConverter: Token <> Ether error");
+        require(
+            _srcToken.balanceOf(address(this)) == 0,
+            "KyberConverter: not all source tokens converted"
+        );
 
         return dstTokenAmount;
     }
@@ -84,7 +90,7 @@ contract KyberConverter is IConverter {
             msg.value, // srcAmount
             _dstToken, // dstToken
             msg.sender, // dstAddress
-            0, // maxDestAmount
+            MAX_UINT_VALUE, // maxDestAmount
             0, // minConversion Rate
             address(0) // walletId for fees sharing
         );
