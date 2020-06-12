@@ -1,6 +1,7 @@
 const { accounts, contract } = require('@openzeppelin/test-environment')
 
 const {
+  BN, // Big Number support
   constants, // Common constants, like the zero address and largest integers
   expectEvent, // Assertions for emitted events
   expectRevert, // Assertions for transactions that should fail
@@ -35,25 +36,38 @@ describe('MarketFeesCollector', function () {
     )
 
     this.uniswapV2Converter = await UniswapV2Converter.new(
-      this.uniswapRouterMock.address,
-      { from: owner }
+      this.uniswapRouterMock.address, { from: owner }
     )
 
+    // Fees collector using a non ERC20 burnable() interface as reserve token
     this.feesCollector = await MarketFeesCollector.new(
       constants.ZERO_ADDRESS,
-      constants.ZERO_ADDRESS,
+      this.reserveTokenBase.address,
       {
         from: owner,
       }
     )
+
+    // Alternative Fees collector for test using a - ERC20 burnable()
+    //  interface as reserve token
+    this.alternativeFeesCollector = await MarketFeesCollector.new(
+      constants.ZERO_ADDRESS,
+      this.reserveBurnableToken.address,
+      {
+        from: owner
+      }
+    )
+
+    //configuredFeesCollector
+    this.configuredFeesCollector = this.feesCollector
   })
 
-  // Fees collector
+  // Fees collector management
   describe('FeesConverter admin', function () {
     it('emits FeesConverter on succesful set', async function () {
-      const receipt = await this.feesCollector.setConverter(someConverter, {
-        from: owner,
-      })
+      const receipt = await this.configuredFeesCollector.setConverter(
+        someConverter, { from: owner }
+      )
 
       expectEvent(receipt, 'SetConverter', {
         converter: someConverter,
@@ -62,54 +76,39 @@ describe('MarketFeesCollector', function () {
 
     it('reverts when setting FeesConverter from non owner account', async function () {
       await expectRevert(
-        this.feesCollector.setConverter(someConverter, { from: someone }),
-        'Ownable: caller is not the owner'
-      )
-    })
-
-    it('emits ReserveTokenChanged on succesful set', async function () {
-      const receipt = await this.feesCollector.setReserveToken(
-        this.reserveTokenBase.address,
-        { from: owner }
-      )
-
-      expectEvent(receipt, 'ReserveTokenChanged', {
-        token: this.reserveTokenBase.address,
-      })
-    })
-
-    it('reverts when setting setReserveToken from non owner account', async function () {
-      await expectRevert(
-        this.feesCollector.setReserveToken(someReserveToken, { from: someone }),
+        this.configuredFeesCollector.setConverter(someConverter, { from: someone }),
         'Ownable: caller is not the owner'
       )
     })
   })
 
-  //
   describe('Burning collected fees', function () {
     const prepareConverter = async function (context, converter) {
       context.burningBalance = `${1e18}`
 
       // setConverter() to kyber
-      await context.feesCollector.setConverter(converter.address, {
-        from: owner,
-      })
+      await context.feesCollector.setConverter(
+        converter.address, { from: owner }
+      )
+      await context.alternativeFeesCollector.setConverter(
+        converter.address, { from: owner }
+      )
     }
 
     const testForSuccess = async function (context, reserveToken, proxyMock) {
-      // set reserve token type in FeesCollector
-      await context.feesCollector.setReserveToken(reserveToken.address, {
-        from: owner,
-      })
 
       // send() some ether balance to burn
-      await context.feesCollector.send(context.burningBalance)
+      await context.configuredFeesCollector.send(
+        context.burningBalance
+      )
 
       // mint() burningBalance to the KyberProxyMock
-      reserveToken.mint(proxyMock.address, context.burningBalance)
+      reserveToken.mint(
+        proxyMock.address,
+        context.burningBalance
+      )
 
-      const receipt = await context.feesCollector.burnCollectedFees({
+      const receipt = await context.configuredFeesCollector.burnCollectedFees({
         from: someone,
       })
 
@@ -122,12 +121,12 @@ describe('MarketFeesCollector', function () {
     }
 
     it('reverts converter unavailable', async function () {
-      await this.feesCollector.setConverter(constants.ZERO_ADDRESS, {
+      await this.configuredFeesCollector.setConverter(constants.ZERO_ADDRESS, {
         from: owner,
       })
 
       await expectRevert(
-        this.feesCollector.burnCollectedFees({
+        this.configuredFeesCollector.burnCollectedFees({
           from: someone,
         }),
         'MarketFeesCollector: converter unavailable'
@@ -135,6 +134,7 @@ describe('MarketFeesCollector', function () {
     })
 
     describe('Using Kyber', function () {
+
       before(async function () {
         await prepareConverter(this, this.kyberConverter)
       })
@@ -143,16 +143,30 @@ describe('MarketFeesCollector', function () {
         await testForSuccess(this, this.reserveTokenBase, this.kyberProxyMock)
       })
 
-      it('emits CollectedFeesBurned on success :: calling ERC20 burn() interface', async function () {
-        await testForSuccess(
-          this,
-          this.reserveBurnableToken,
-          this.kyberProxyMock
-        )
+      describe('Using burn() in the reserveToken', function () {
+
+        before(async function () {
+          this.configuredFeesCollector = this.alternativeFeesCollector;
+        })
+
+        it('emits CollectedFeesBurned on success', async function () {
+          await testForSuccess(
+            this,
+            this.reserveBurnableToken,
+            this.kyberProxyMock
+          )
+        })
+
+        after(async function () {
+          this.configuredFeesCollector = this.feesCollector;
+        })
+
       })
+
     })
 
     describe('Using UniswapV2', function () {
+
       before(async function () {
         await prepareConverter(this, this.uniswapV2Converter)
       })
@@ -165,13 +179,41 @@ describe('MarketFeesCollector', function () {
         )
       })
 
-      it('emits CollectedFeesBurned on success :: calling ERC20 burn() interface', async function () {
-        await testForSuccess(
-          this,
-          this.reserveBurnableToken,
-          this.uniswapRouterMock
-        )
+      describe('Using burn() in the reserveToken', function () {
+
+        before(async function () {
+          this.configuredFeesCollector = this.alternativeFeesCollector;
+        })
+
+        it('emits CollectedFeesBurned on success', async function () {
+          await testForSuccess(
+            this,
+            this.reserveBurnableToken,
+            this.uniswapRouterMock
+          )
+        })
+
+        after(async function () {
+          this.configuredFeesCollector = this.feesCollector;
+        })
+
       })
     })
   })
+
+  describe('Testing receive() method', function () {
+    it('emits FeesReceived on success', async function () {
+      const randomValue = new BN(`{1e18}`);
+
+      const receipt = await this.feesCollector.send(
+        randomValue, { from: someone }
+      )
+
+      expectEvent(receipt, 'FeesReceived', {
+        from: someone,
+        amount: randomValue,
+      })
+    })
+  })
+
 })

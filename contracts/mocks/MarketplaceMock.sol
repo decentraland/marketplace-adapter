@@ -26,6 +26,35 @@ contract MarketplaceMock {
         _checkOwnership(_tokenId, _registry);
     }
 
+    // calls deprecated onERC721Received(address,uint256,bytes) after transfer
+    function buyWithDeprecatedCallback(uint256 _tokenId, address _registry) public payable {
+        _checkOwnership(_tokenId, _registry);
+
+        address tokenRecipient = msg.sender;
+
+        ERC721Mock(_registry).transferFrom(
+            address(this), tokenRecipient, _tokenId
+        );
+
+        (bool success, bytes memory returndata) = tokenRecipient.call(
+            abi.encodeWithSignature(
+                "onERC721Received(address,uint256,bytes)", tokenRecipient, _tokenId, ""
+            )
+        );
+
+        require(
+            success,
+            "MarketplaceMock: transfer to non OLD-ERC721Receiver implementer"
+        );
+
+        bytes4 retval = abi.decode(returndata, (bytes4));
+
+        require(
+            retval == 0xf0b9e5ba,
+            "MarketplaceMock: wrong OLD-ERC721Receiver response"
+        );
+    }
+
     function buy(uint256 _tokenId, address _registry) public payable {
         _checkOwnership(_tokenId, _registry);
 
@@ -35,7 +64,7 @@ contract MarketplaceMock {
     }
 
     // this buy method wont call ERC721Reveived callback
-    function buyAlt(uint256 _tokenId, address _registry) public payable {
+    function buyWithoutERC721Reveived(uint256 _tokenId, address _registry) public payable {
         _checkOwnership(_tokenId, _registry);
 
         ERC721Mock(_registry).transferFrom(

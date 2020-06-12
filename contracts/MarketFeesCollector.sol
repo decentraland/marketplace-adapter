@@ -16,7 +16,6 @@ contract MarketFeesCollector is Ownable, ConverterManager {
     using SafeERC20 for IERC20;
 
     event FeesReceived(address from, uint256 amount);
-    event ReserveTokenChanged(address indexed token);
 
     event CollectedFeesBurned(
         address indexed callingAddr,
@@ -38,12 +37,7 @@ contract MarketFeesCollector is Ownable, ConverterManager {
         Ownable() public
     {
         setConverter(_converter);
-        setReserveToken(_reserveToken);
-    }
-
-    function setReserveToken(address _reserveToken) public onlyOwner {
         reserveToken = IERC20(_reserveToken);
-        emit ReserveTokenChanged(_reserveToken);
     }
 
     /**

@@ -123,7 +123,7 @@ contract MarketAdapter is
     /**
      * @dev Relays buy marketplace order. Uses the IConverter to
      *  swap erc20 tokens to ethers and call _buy() with the exact ether amount
-     * @param _orderAmount in ethers of the markeplace order
+     * @param _orderAmount (including fees) in ethers for the markeplace order
      * @param _paymentToken ERC20 address of the token used to pay
      * @param _registry NFT registry address
      * @param _tokenId listed asset Id.
@@ -148,6 +148,10 @@ contract MarketAdapter is
         );
 
         require(paymentTokenAmount > 0, "MarketAdapter: payment token amount invalid");
+        require(
+            _paymentToken.balanceOf(msg.sender) >= paymentTokenAmount,
+            "MarketAdapter: insufficient payment token balance"
+        );
 
         // Get Tokens from registry
         _paymentToken.safeTransferFrom(
@@ -159,7 +163,7 @@ contract MarketAdapter is
         // Aprove converter for this paymentTokenAmount transfer
         _paymentToken.safeApprove(converterAddress, paymentTokenAmount);
 
-        // // Get ethers from converter
+        // Get ethers from converter
         converter.swapTokenToEther(_paymentToken, paymentTokenAmount);
 
         _buy(
@@ -187,8 +191,6 @@ contract MarketAdapter is
     )
         external payable nonReentrant
     {
-        require(msg.value > 0, "MarketAdapter: invalid order value");
-
         _buy(
             msg.value,
             _registry,
@@ -207,6 +209,8 @@ contract MarketAdapter is
     )
         private
     {
+        require(_orderAmount > 0, "MarketAdapter: invalid order value");
+
         require(
             whitelistedMarkets[_marketplace],
             "MarketAdapter: dest market is not whitelisted"
@@ -239,7 +243,7 @@ contract MarketAdapter is
             "MarketAdapter: tokenId not transfered"
         );
 
-        // Send order balance to Collector. Reverts on failure
+        // Send balance to Collector. Reverts on failure
         if (adapterFeesCollector != address(0) && address(this).balance > 0) {
             require(
                 adapterFeesCollector.send(address(this).balance),
