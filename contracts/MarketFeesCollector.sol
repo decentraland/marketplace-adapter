@@ -15,11 +15,8 @@ contract MarketFeesCollector is Ownable, ConverterManager {
 
     using SafeERC20 for IERC20;
 
-    event FeesReceived(address from, uint256 amount);
-
     event CollectedFeesBurned(
         address indexed callingAddr,
-        address indexed burnedToken,
         uint256 etherBalance,
         uint256 burnedTokens
     );
@@ -46,6 +43,9 @@ contract MarketFeesCollector is Ownable, ConverterManager {
      */
     function burnCollectedFees() external {
 
+        // copy to mem
+        IERC20 reserve = reserveToken;
+
         require(
             converterAddress != address(0),
             "MarketFeesCollector: converter unavailable"
@@ -55,7 +55,7 @@ contract MarketFeesCollector is Ownable, ConverterManager {
         uint256 totalConverted = IConverter(converterAddress).swapEtherToToken{
             value: totalBalance
         }(
-            reserveToken
+            reserve
         );
 
         require(totalConverted > 0, "MarketFeesCollector: conversion error");
@@ -70,21 +70,20 @@ contract MarketFeesCollector is Ownable, ConverterManager {
             totalConverted
         );
 
-        (bool success,) = address(reserveToken).call(encodedParams);
+        (bool success,) = address(reserve).call(encodedParams);
 
         if (!success) {
-            reserveToken.safeTransfer(address(0), totalConverted);
+            reserve.safeTransfer(address(0), totalConverted);
         }
 
         emit CollectedFeesBurned(
             msg.sender,
-            address(reserveToken),
             totalBalance,
             totalConverted
         );
     }
 
     receive() external payable {
-        emit FeesReceived(msg.sender, msg.value);
+
     }
 }

@@ -39,7 +39,7 @@ contract MarketAdapter is
     // Allowed map of marketplaces
     mapping (address => bool) public whitelistedMarkets;
 
-    // Order execution fee in a 0 - 1000 basis
+    // Order execution fee in a 0 - 1000000 basis
     uint256 public adapterTransactionFee;
 
     // Max allowed fee for the adapter
@@ -99,7 +99,7 @@ contract MarketAdapter is
     }
 
     /**
-     * @dev Initializer for PerformanceCard contract
+     * @dev Sets fees collector for the adapter
      * @param _collector Address for the fees collector
      */
     function setFeesCollector(address payable _collector) public onlyOwner {
@@ -131,12 +131,12 @@ contract MarketAdapter is
      * @param _encodedCallData forwarded to whitelisted marketplace.
      */
     function buy(
-        uint256 _orderAmount,
-        IERC20 _paymentToken,
         IERC721 _registry,
         uint256 _tokenId,
         address _marketplace,
-        bytes calldata _encodedCallData
+        bytes calldata _encodedCallData,
+        uint256 _orderAmount,
+        IERC20 _paymentToken
     )
         external nonReentrant
     {
@@ -167,11 +167,11 @@ contract MarketAdapter is
         converter.swapTokenToEther(_paymentToken, paymentTokenAmount);
 
         _buy(
-            _orderAmount,
             _registry,
             _tokenId,
             _marketplace,
-            _encodedCallData
+            _encodedCallData,
+            _orderAmount
         );
     }
 
@@ -192,20 +192,20 @@ contract MarketAdapter is
         external payable nonReentrant
     {
         _buy(
-            msg.value,
             _registry,
             _tokenId,
             _marketplace,
-            _encodedCallData
+            _encodedCallData,
+            msg.value
         );
     }
 
     function _buy(
-        uint256 _orderAmount,
         IERC721 _registry,
         uint256 _tokenId,
         address _marketplace,
-        bytes memory _encodedCallData
+        bytes memory _encodedCallData,
+        uint256 _orderAmount
     )
         private
     {

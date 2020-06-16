@@ -2,6 +2,7 @@ const { accounts, contract } = require('@openzeppelin/test-environment')
 
 const {
   BN, // Big Number support
+  balance, //
   constants, // Common constants, like the zero address and largest integers
   expectEvent, // Assertions for emitted events
   expectRevert, // Assertions for transactions that should fail
@@ -10,6 +11,7 @@ const {
 const MarketFeesCollector = contract.fromArtifact('MarketFeesCollector')
 const UniswapV2Converter = contract.fromArtifact('UniswapV2Converter')
 const KyberConverter = contract.fromArtifact('KyberConverter')
+const ConverterMock = contract.fromArtifact('ConverterMock')
 
 // Mocks
 const ERC20MockBase = contract.fromArtifact('ERC20MockBase')
@@ -23,6 +25,7 @@ describe('MarketFeesCollector', function () {
   const [owner, someone, someConverter, someReserveToken] = accounts
 
   before(async function () {
+    this.converterMock = await ConverterMock.new({ from: owner })
     this.kyberProxyMock = await KyberProxyMock.new({ from: owner })
     this.uniswapRouterMock = await UniswapRouterMock.new({ from: owner })
 
@@ -114,7 +117,6 @@ describe('MarketFeesCollector', function () {
 
       expectEvent(receipt, 'CollectedFeesBurned', {
         callingAddr: someone,
-        burnedToken: reserveToken.address,
         etherBalance: context.burningBalance,
         burnedTokens: context.burningBalance,
       })
@@ -130,6 +132,18 @@ describe('MarketFeesCollector', function () {
           from: someone,
         }),
         'MarketFeesCollector: converter unavailable'
+      )
+    })
+
+    it('reverts if can\'t convert eth > tokens', async function () {
+      await this.configuredFeesCollector.setConverter(
+        this.converterMock.address, { from: owner })
+
+      await expectRevert(
+        this.configuredFeesCollector.burnCollectedFees({
+          from: someone,
+        }),
+        'MarketFeesCollector: conversion error'
       )
     })
 
@@ -202,17 +216,19 @@ describe('MarketFeesCollector', function () {
   })
 
   describe('Testing receive() method', function () {
-    it('emits FeesReceived on success', async function () {
+    it('checks pre-post balances on successful send', async function () {
       const randomValue = new BN(`{1e18}`);
 
-      const receipt = await this.feesCollector.send(
-        randomValue, { from: someone }
-      )
+      const tracker = await balance.tracker(this.feesCollector.address)
+      const preBalance = await tracker.get()
 
-      expectEvent(receipt, 'FeesReceived', {
-        from: someone,
-        amount: randomValue,
-      })
+      await this.feesCollector.send(randomValue, { from: someone })
+
+      const postBalance = await tracker.get()
+
+      postBalance.should.be.bignumber.eq(
+        preBalance.add(randomValue)
+      )
     })
   })
 
