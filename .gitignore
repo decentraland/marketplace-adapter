@@ -14,3 +14,7 @@ build
 # Other
 .DS_Store
 .idea
+
+# Coverage
+coverage.json
+coverage

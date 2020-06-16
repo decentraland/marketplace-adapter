@@ -22,11 +22,13 @@
     "eslint-plugin-prettier": "^3.1.3",
     "husky": "^4.2.5",
     "mocha": "^7.2.0",
-    "prettier": "^2.0.5"
+    "prettier": "^2.0.5",
+    "solidity-coverage": "^0.7.7"
   },
   "scripts": {
     "test": "oz compile && mocha --exit --recursive test",
     "lint": "npx eslint test && npx solium -d contracts",
+    "coverage": "npx truffle run coverage",
     "lint:fix": "npx eslint --fix test && npx solium -d contracts --fix"
   },
   "repository": {

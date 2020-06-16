@@ -13,6 +13,12 @@ const createInfuraProvider = (network = 'mainnet') =>
   )
 
 module.exports = {
+  plugins: ["solidity-coverage"],
+  compilers: {
+    solc: {
+      version: "0.6.8"
+    }
+  },
   networks: {
     livenet: {
       host: 'localhost',
