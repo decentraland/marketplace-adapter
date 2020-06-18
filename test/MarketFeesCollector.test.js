@@ -111,6 +111,9 @@ describe('MarketFeesCollector', function () {
         context.burningBalance
       )
 
+      const tracker = await balance.tracker(context.configuredFeesCollector.address)
+      const preBalance = await tracker.get()
+
       const receipt = await context.configuredFeesCollector.burnCollectedFees({
         from: someone,
       })
@@ -120,6 +123,10 @@ describe('MarketFeesCollector', function () {
         etherBalance: context.burningBalance,
         burnedTokens: context.burningBalance,
       })
+
+      /// Post balance check
+      const postBalance = await tracker.get()
+      postBalance.should.be.bignumber.eq('0')
     }
 
     it('reverts converter unavailable', async function () {
