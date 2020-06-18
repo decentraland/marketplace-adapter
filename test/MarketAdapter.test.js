@@ -187,6 +187,9 @@ describe('MarketAdapter', function () {
           .buy(tokenId, this.erc721RegistryMock.address)
           .encodeABI()
 
+        const tracker = await balance.tracker(someone)
+        const preBalance = await tracker.get()
+
         const receipt = await this.marketAdapter.methods[
           'buy(address,uint256,address,bytes)'
         ](
@@ -197,6 +200,7 @@ describe('MarketAdapter', function () {
           {
             value: this.orderValue,
             from: someone,
+            gasPrice: 0
           }
         )
 
@@ -207,6 +211,13 @@ describe('MarketAdapter', function () {
           orderValue: this.orderValue,
           orderFees: this.orderFees,
         })
+
+        /// Post balance check
+        const postBalance = await tracker.get()
+
+        postBalance.should.be.bignumber.eq(
+          preBalance.sub(this.orderValue)
+        )
       })
 
       it('emits ExecutedOrder with (Deprecated) onERC721Received callback', async function () {
@@ -217,6 +228,9 @@ describe('MarketAdapter', function () {
           .buyWithDeprecatedCallback(tokenId, this.erc721RegistryMock.address)
           .encodeABI()
 
+        const tracker = await balance.tracker(someone)
+        const preBalance = await tracker.get()
+
         const receipt = await this.marketAdapter.methods[
           'buy(address,uint256,address,bytes)'
         ](
@@ -227,6 +241,7 @@ describe('MarketAdapter', function () {
           {
             value: this.orderValue,
             from: someone,
+            gasPrice: 0
           }
         )
 
@@ -237,6 +252,13 @@ describe('MarketAdapter', function () {
           orderValue: this.orderValue,
           orderFees: this.orderFees,
         })
+
+        /// Post balance check
+        const postBalance = await tracker.get()
+
+        postBalance.should.be.bignumber.eq(
+          preBalance.sub(this.orderValue)
+        )
       })
 
       it('emits ExecutedOrder without onERC721Received callback', async function () {
@@ -247,6 +269,9 @@ describe('MarketAdapter', function () {
           .buyWithoutERC721Reveived(tokenId, this.erc721RegistryMock.address)
           .encodeABI()
 
+        const tracker = await balance.tracker(someone)
+        const preBalance = await tracker.get()
+
         const receipt = await this.marketAdapter.methods[
           'buy(address,uint256,address,bytes)'
         ](
@@ -257,6 +282,7 @@ describe('MarketAdapter', function () {
           {
             value: this.orderValue,
             from: someone,
+            gasPrice: 0
           }
         )
 
@@ -267,6 +293,13 @@ describe('MarketAdapter', function () {
           orderValue: this.orderValue,
           orderFees: this.orderFees,
         })
+
+        /// Post balance check
+        const postBalance = await tracker.get()
+
+        postBalance.should.be.bignumber.eq(
+          preBalance.sub(this.orderValue)
+        )
       })
 
       // Reverts
@@ -533,6 +566,8 @@ describe('MarketAdapter', function () {
           .buy(tokenId, context.erc721RegistryMock.address)
           .encodeABI()
 
+        const preBalance = await context.reserveTokenMock.balanceOf(someone)
+
         const receipt = await context.marketAdapter.methods[
           'buy(address,uint256,address,bytes,uint256,address)'
         ](
@@ -545,6 +580,13 @@ describe('MarketAdapter', function () {
           {
             from: someone,
           }
+        )
+
+        /// Post Balance Check
+        const postBalance = await context.reserveTokenMock.balanceOf(someone)
+
+        postBalance.should.be.bignumber.eq(
+          preBalance.sub(context.orderValue)
         )
 
         expectEvent(receipt, 'ExecutedOrder', {
@@ -570,22 +612,27 @@ describe('MarketAdapter', function () {
           .buy(tokenId, context.erc721RegistryMock.address)
           .encodeABI()
 
-        await expectRevert(
-          context.marketAdapter.methods[
-            'buy(address,uint256,address,bytes,uint256,address)'
-          ](
-            context.erc721RegistryMock.address,
-            tokenId,
-            context.marketplaceMock.address,
-            encodedCallData,
-            context.orderValue, // orderAmount
-            context.reserveTokenMock.address, // paymentToken
-            {
-              from: someone,
-            }
-          ),
-          revertReasonText
-        )
+        const txPromise = context.marketAdapter.methods[
+          'buy(address,uint256,address,bytes,uint256,address)'
+        ](
+          context.erc721RegistryMock.address,
+          tokenId,
+          context.marketplaceMock.address,
+          encodedCallData,
+          context.orderValue, // orderAmount
+          context.reserveTokenMock.address, // paymentToken
+          {
+            from: someone,
+          }
+        );
+
+        if (revertReasonText) {
+          await expectRevert(txPromise, revertReasonText)
+
+        } else {
+          await expectRevert.unspecified(txPromise)
+        }
+
       }
 
       describe('Using Kyber', function () {
@@ -605,7 +652,7 @@ describe('MarketAdapter', function () {
           await testPositiveTokenIdBuy(this, '7000')
         })
 
-        it('reverts if token balance < order value',  async function () {
+        it('reverts (safeTransferFrom) if token balance < order value',  async function () {
 
           const tokensMinted = this.orderValue.div(new BN(2))
 
@@ -615,7 +662,7 @@ describe('MarketAdapter', function () {
           await testNegativeTokenIdBuy(
             this,
             '8000',
-            'MarketAdapter: insufficient payment token balance'
+            undefined
           )
 
           // burn test tokens
@@ -650,7 +697,7 @@ describe('MarketAdapter', function () {
           await testPositiveTokenIdBuy(this, '8000')
         })
 
-        it('reverts if token balance < order value',  async function () {
+        it('reverts (safeTransferFrom) if token balance < order value',  async function () {
 
           const tokensMinted = this.orderValue.div(new BN(2))
 
@@ -660,7 +707,7 @@ describe('MarketAdapter', function () {
           await testNegativeTokenIdBuy(
             this,
             '9000',
-            'MarketAdapter: insufficient payment token balance'
+            undefined
           )
 
           // burn test tokens

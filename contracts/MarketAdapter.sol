@@ -148,10 +148,6 @@ contract MarketAdapter is
         );
 
         require(paymentTokenAmount > 0, "MarketAdapter: payment token amount invalid");
-        require(
-            _paymentToken.balanceOf(msg.sender) >= paymentTokenAmount,
-            "MarketAdapter: insufficient payment token balance"
-        );
 
         // Get Tokens from registry
         _paymentToken.safeTransferFrom(
