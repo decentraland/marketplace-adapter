@@ -54,7 +54,9 @@ contract MarketAdapter is
 
     /**
      * @dev constructor
-     * @param _collector address of the Fee Collector
+     * @param _converter address for the IConverter
+     * @param _collector address for the Fee Collector contract
+     * @param _adapderFee initial adapter fee
      */
     constructor(
         address _converter,

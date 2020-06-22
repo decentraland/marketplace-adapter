@@ -1,0 +1,35 @@
+{
+  "contracts": {},
+  "solidityLibs": {},
+  "proxies": {
+    "marketplace-adapter/KyberConverter": [
+      {
+        "address": "0x166E9C98E60Cf5bc42506E8C40Dd928A7a9Dc82c",
+        "kind": "NonProxy",
+        "bytecodeHash": "f3da76078b4fb91133703eae39c9ad18f4d5ad2412d7e934ab5d6b4df0af9a77"
+      }
+    ],
+    "marketplace-adapter/UniswapV2Converter": [
+      {
+        "address": "0xebaD4dDa9b1D7A7FFa1c0587AF07275Eb53c5633",
+        "kind": "NonProxy",
+        "bytecodeHash": "2a8e40c42cd547b49397bcd623986440562d9c58b255580d8596ed26b26908b8"
+      }
+    ],
+    "marketplace-adapter/MarketFeesCollector": [
+      {
+        "address": "0x0C049f43a96bD0F91b9a48B7cCE48fEBbF93F98F",
+        "kind": "NonProxy",
+        "bytecodeHash": "b9ce87fb59a6a87e548df0fb523d2abb547a08218c2eb3ba4c575c1a3ad34699"
+      }
+    ],
+    "marketplace-adapter/MarketAdapter": [
+      {
+        "address": "0x39bA3DDdd13196dc4f3Fe732C42B666764403c2D",
+        "kind": "NonProxy",
+        "bytecodeHash": "4a3d8900290e774a563a11c7c3cbba1468541f3865c0448eb992af7795b68fa0"
+      }
+    ]
+  },
+  "manifestVersion": "2.2"
+}
