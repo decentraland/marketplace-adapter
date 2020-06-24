@@ -2,10 +2,10 @@
 
 Adapter and fee collector contracts for 3rd parties NFTs marketplaces
 
-## compile
+## Compile
 npx oz compile --solc-version=0.6.8 --optimizer on
 
-## tests
+## Tests
 npm run test
 
 ## Deployment
