@@ -1,33 +1,5 @@
 {
   "contracts": {},
   "solidityLibs": {},
-  "proxies": {
-    "marketplace-adapter/KyberConverter": [
-      {
-        "address": "0x166E9C98E60Cf5bc42506E8C40Dd928A7a9Dc82c",
-        "kind": "NonProxy",
-        "bytecodeHash": "f3da76078b4fb91133703eae39c9ad18f4d5ad2412d7e934ab5d6b4df0af9a77"
-      }
-    ],
-    "marketplace-adapter/UniswapV2Converter": [
-      {
-        "address": "0xebaD4dDa9b1D7A7FFa1c0587AF07275Eb53c5633",
-        "kind": "NonProxy",
-        "bytecodeHash": "2a8e40c42cd547b49397bcd623986440562d9c58b255580d8596ed26b26908b8"
-      }
-    ],
-    "marketplace-adapter/MarketFeesCollector": [
-      {
-        "address": "0x1ea389c160042f2152eaaea74c6b641f37877cb8",
-        "kind": "NonProxy"
-      }
-    ],
-    "marketplace-adapter/MarketAdapter": [
-      {
-        "address": "0xd28fcd59322aa58ea8be8f2e62d5a994bba57af8",
-        "kind": "NonProxy"
-      }
-    ]
-  },
   "manifestVersion": "2.2"
 }

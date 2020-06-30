@@ -25,7 +25,7 @@ contract UniswapV2Converter is IConverter {
         return address(uniswapV2Router);
     }
 
-    function calcEtherToToken(
+    function calcNeededTokensForEther(
         IERC20 _dstToken,
         uint256 _etherAmount
     )
@@ -33,15 +33,15 @@ contract UniswapV2Converter is IConverter {
     {
         address[] memory path = new address[](2);
 
-        path[0] = uniswapV2Router.WETH();
-        path[1] = address(_dstToken);
+        path[0] = address(_dstToken);
+        path[1] = uniswapV2Router.WETH();
 
-        uint256[] memory amounts = uniswapV2Router.getAmountsOut(
+        uint256[] memory amounts = uniswapV2Router.getAmountsIn(
             _etherAmount,
             path
         );
 
-        return amounts[1];
+        return amounts[0];
     }
 
     function swapTokenToEther(

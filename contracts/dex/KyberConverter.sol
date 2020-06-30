@@ -28,7 +28,7 @@ contract KyberConverter is IConverter {
         return address(kyberProxy);
     }
 
-    function calcEtherToToken(
+    function calcNeededTokensForEther(
         IERC20 _dstToken,
         uint256 _etherAmount
     )
@@ -42,6 +42,10 @@ contract KyberConverter is IConverter {
         );
 
         // return the token amount in _dstToken units
+
+        // https://github.com/KyberNetwork/smart-contracts/blob/master/contracts/Utils.sol#L34-L45
+        // simplified calcDestQty from with source / destination tokens both having 1e18 precision
+
         return _etherAmount.mul(expectedRate).div(1e18);
     }
 

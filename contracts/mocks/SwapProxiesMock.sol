@@ -5,12 +5,24 @@ pragma solidity ^0.6.8;
 import "../dex/IKyberNetworkProxy.sol";
 import "../dex/IUniswapV2Router02.sol";
 
+import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 
 
 contract SwapProxyMock {
 
+    using SafeMath for uint256;
     using SafeERC20 for IERC20;
+
+    uint256 private constant tokenPairRatio = 3;
+
+    function calcEthersPerToken(uint256 _input) public pure returns (uint256) {
+        return _input.div(tokenPairRatio);
+    }
+
+    function calcTokensPerEther(uint256 _ethers) public pure returns (uint256) {
+        return _ethers.mul(tokenPairRatio);
+    }
 
     function _swapEtherToToken(
         IERC20 _dstToken,
@@ -21,16 +33,17 @@ contract SwapProxyMock {
     {
         require(_etherAmount > 0, "SwapProxyMock: balance > 0 error");
 
+        uint256 tokenAmount = calcTokensPerEther(_etherAmount);
         uint256 tokenBalance = _dstToken.balanceOf(address(this));
 
         require(
-            tokenBalance >= _etherAmount,
+            tokenBalance >= tokenAmount,
             "SwapProxyMock: balance token/eth error"
         );
 
-        _dstToken.safeTransfer(_dstAddress, _etherAmount);
+        _dstToken.safeTransfer(_dstAddress, tokenAmount);
 
-        return _etherAmount;
+        return tokenAmount;
     }
 
     function _swapTokenToEther(
@@ -40,11 +53,13 @@ contract SwapProxyMock {
     )
         internal returns (uint256)
     {
+        uint256 etherAmount = calcEthersPerToken(_srcAmount);
+
         // Get tokens, send ethers to caller
         _srcToken.safeTransferFrom(msg.sender, address(this), _srcAmount);
-        _dstAddress.transfer(_srcAmount);
+        _dstAddress.transfer(etherAmount);
 
-        return _srcAmount;
+        return etherAmount;
     }
 
     receive() external payable {
@@ -56,14 +71,17 @@ contract SwapProxyMock {
 contract KyberProxyMock is SwapProxyMock, IKyberNetworkProxy {
 
     function getExpectedRate(
+        IERC20 src,
         IERC20,
-        IERC20,
-        uint256
+        uint256 srcQty
     )
         public view override returns (uint256 expectedRate, uint256 slippageRate)
     {
-        // 1 <> 1 conversion
-        expectedRate = 1e18;
+        uint256 dstAmount = (src == IERC20(0x00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee)) ?
+            super.calcTokensPerEther(srcQty):
+            super.calcEthersPerToken(srcQty);
+
+        expectedRate = dstAmount.mul(1e18).div(srcQty);
         slippageRate = 0;
     }
 
@@ -88,20 +106,22 @@ contract KyberProxyMock is SwapProxyMock, IKyberNetworkProxy {
 // Mock called IUniswapV2Router02 methods
 contract UniswapRouterMock is SwapProxyMock, IUniswapV2Router02 {
 
-    function WETH() external pure override returns (address) {
+    function WETH() public pure override returns (address) {
         return address(0x00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee);
     }
 
-    function getAmountsOut(
-        uint _amountIn,
-        address[] calldata
+    function getAmountsIn(
+        uint _amountOut,
+        address[] calldata _path
     )
         external view override returns (uint[] memory amounts)
     {
-        amounts = new uint[](2);
+        uint256 amountIn = (_path[0] == WETH()) ?
+            super.calcEthersPerToken(_amountOut):
+            super.calcTokensPerEther(_amountOut);
 
-        amounts[0] = _amountIn;
-        amounts[1] = _amountIn;
+        amounts = new uint[](1);
+        amounts[0] = amountIn;
     }
 
     function swapExactTokensForETH(

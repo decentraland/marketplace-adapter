@@ -105,11 +105,13 @@ describe('MarketFeesCollector', function () {
         context.burningBalance
       )
 
-      // mint() burningBalance to the KyberProxyMock
-      reserveToken.mint(
-        proxyMock.address,
-        context.burningBalance
-      )
+      // get Total Tokens needed for order + fees
+      totalTokensNeeded = await proxyMock.calcTokensPerEther(
+        context.burningBalance,
+      );
+
+      // mint() totalTokensNeeded to KyberProxyMock
+      reserveToken.mint(proxyMock.address, totalTokensNeeded)
 
       const tracker = await balance.tracker(context.configuredFeesCollector.address)
       const preBalance = await tracker.get()
@@ -121,7 +123,7 @@ describe('MarketFeesCollector', function () {
       expectEvent(receipt, 'CollectedFeesBurned', {
         callingAddr: someone,
         etherBalance: context.burningBalance,
-        burnedTokens: context.burningBalance,
+        burnedTokens: totalTokensNeeded,
       })
 
       /// Post balance check

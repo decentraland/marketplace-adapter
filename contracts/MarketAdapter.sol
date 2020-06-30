@@ -125,12 +125,12 @@ contract MarketAdapter is
     /**
      * @dev Relays buy marketplace order. Uses the IConverter to
      *  swap erc20 tokens to ethers and call _buy() with the exact ether amount
-     * @param _orderAmount (including fees) in ethers for the markeplace order
-     * @param _paymentToken ERC20 address of the token used to pay
      * @param _registry NFT registry address
      * @param _tokenId listed asset Id.
      * @param _marketplace whitelisted marketplace listing the asset.
      * @param _encodedCallData forwarded to whitelisted marketplace.
+     * @param _orderAmount (excluding fees) in ethers for the markeplace order
+     * @param _paymentToken ERC20 address of the token used to pay
      */
     function buy(
         IERC721 _registry,
@@ -144,9 +144,14 @@ contract MarketAdapter is
     {
         IConverter converter = IConverter(converterAddress);
 
-        uint256 paymentTokenAmount = converter.calcEtherToToken(
+        // Calc total needed for this order + adapter fees
+        uint256 totalOrderAmount = _orderAmount.add(
+            _calcOrderFees(_orderAmount)
+        );
+
+        uint256 paymentTokenAmount = converter.calcNeededTokensForEther(
             _paymentToken,
-            _orderAmount
+            totalOrderAmount
         );
 
         require(paymentTokenAmount > 0, "MarketAdapter: payment token amount invalid");
@@ -162,7 +167,15 @@ contract MarketAdapter is
         _paymentToken.safeApprove(converterAddress, paymentTokenAmount);
 
         // Get ethers from converter
-        converter.swapTokenToEther(_paymentToken, paymentTokenAmount);
+        uint256 convertedEth = converter.swapTokenToEther(
+            _paymentToken,
+            paymentTokenAmount
+        );
+
+        require(
+            convertedEth == totalOrderAmount,
+            "MarketAdapter: invalid ether amount after conversion"
+        );
 
         _buy(
             _registry,
@@ -180,24 +193,46 @@ contract MarketAdapter is
      * @param _tokenId listed asset Id.
      * @param _marketplace whitelisted marketplace listing the asset.
      * @param _encodedCallData forwarded to whitelisted marketplace.
+     * @param _orderAmount (excluding fees) in ethers for the markeplace order
      */
     function buy(
         IERC721 _registry,
         uint256 _tokenId,
         address _marketplace,
-        bytes calldata _encodedCallData
+        bytes calldata _encodedCallData,
+        uint256 _orderAmount
     )
         external payable nonReentrant
     {
+        // Calc total needed for this order + adapter fees
+        uint256 totalOrderAmount = _orderAmount.add(
+            _calcOrderFees(_orderAmount)
+        );
+
+        // Check the order + fees
+        require(
+            msg.value == totalOrderAmount,
+            "MarketAdapter: invalid msg.value != (order + fees)"
+        );
+
         _buy(
             _registry,
             _tokenId,
             _marketplace,
             _encodedCallData,
-            msg.value
+            _orderAmount
         );
     }
 
+
+    /**
+     * @dev Internal call relays the order to a whitelisted marketplace.
+     * @param _registry NFT registry address
+     * @param _tokenId listed asset Id.
+     * @param _marketplace whitelisted marketplace listing the asset.
+     * @param _encodedCallData forwarded to whitelisted marketplace.
+     * @param _orderAmount (excluding fees) in ethers for the markeplace order
+     */
     function _buy(
         IERC721 _registry,
         uint256 _tokenId,
@@ -214,25 +249,21 @@ contract MarketAdapter is
             "MarketAdapter: dest market is not whitelisted"
         );
 
-        // Get adapter fees from total order value
-        uint256 transactionFee = _orderAmount
-            .mul(adapterTransactionFee)
-            .div(ADAPTER_FEE_PRECISION);
-
-        uint256 relayedOrderValue = _orderAmount.sub(transactionFee);
-
         // Save contract balance before call to marketplace
         uint256 preCallBalance = address(this).balance;
 
         // execute buy order in destination marketplace
-        (bool success, ) = _marketplace.call{ value: relayedOrderValue }(
+        (bool success, ) = _marketplace.call{ value: _orderAmount }(
             _encodedCallData
         );
 
-        require(success, "MarketAdapter: marketplace failed to execute buy order");
+        require(
+            success,
+            "MarketAdapter: marketplace failed to execute buy order"
+        );
 
         require(
-            address(this).balance == preCallBalance.sub(relayedOrderValue),
+            address(this).balance == preCallBalance.sub(_orderAmount),
             "MarketAdapter: postcall balance mismatch"
         );
 
@@ -250,9 +281,7 @@ contract MarketAdapter is
         }
 
         // Transfer tokenId to caller
-        _registry.safeTransferFrom(
-            address(this), msg.sender, _tokenId
-        );
+        _registry.safeTransferFrom(address(this), msg.sender, _tokenId);
 
         // Log succesful executed order
         emit ExecutedOrder(
@@ -260,8 +289,18 @@ contract MarketAdapter is
             _tokenId,
             _marketplace,
             _orderAmount,
-            transactionFee
+            _calcOrderFees(_orderAmount)
         );
+    }
+
+    /**
+     * @param _orderAmount item value as in the NFT marketplace
+     * @return adapter fees from total order value
+     */
+    function _calcOrderFees(uint256 _orderAmount) private view returns (uint256) {
+        return _orderAmount
+            .mul(adapterTransactionFee)
+            .div(ADAPTER_FEE_PRECISION);
     }
 
     receive() external payable {

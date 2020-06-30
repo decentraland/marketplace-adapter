@@ -10,7 +10,7 @@ contract ConverterMock is IConverter {
         return address(0);
     }
 
-    function calcEtherToToken(IERC20, uint256) public view override returns (uint256) {
+    function calcNeededTokensForEther(IERC20, uint256) public view override returns (uint256) {
         return 0;
     }
 

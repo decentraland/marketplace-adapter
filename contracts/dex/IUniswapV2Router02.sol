@@ -7,8 +7,8 @@ interface IUniswapV2Router02 {
 
     function WETH() external pure returns (address);
 
-    function getAmountsOut(
-        uint amountIn,
+    function getAmountsIn(
+        uint amountOut,
         address[] calldata path
     )
         external view returns (uint[] memory amounts);
