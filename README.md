@@ -37,3 +37,13 @@ oz deploy MarketAdapter
 ? _collector: address: 0x0C049f43a96bD0F91b9a48B7cCE48fEBbF93F98F
 ? _adapderFee: uint256: 25000
 ```
+
+## Deployed Ropsten addresses
+
+### MarketFeesCollector
+ - Using Real MANA: "0x4a1b52d3dcad59212d11ab7a5ec81b9f3c973006"
+ - Using Kyber MANA: "0xd28fcd59322aa58ea8be8f2e62d5a994bba57af8"
+
+### MarketAdapter:
+- Using Real MANA: "0x4a1b52d3dcad59212d11ab7a5ec81b9f3c973006"
+- Using Kyber MANA: "0xd28fcd59322aa58ea8be8f2e62d5a994bba57af8"
