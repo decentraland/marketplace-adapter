@@ -18,7 +18,7 @@ contract ConverterMock is IConverter {
         return 0;
     }
 
-    function swapTokenToEther(IERC20, uint256) public override returns (uint256) {
-        return 0;
+    function swapTokenToEther(IERC20, uint256, uint256) public override returns (uint256, uint256) {
+        return (0, 0);
     }
 }

@@ -138,38 +138,45 @@ contract MarketAdapter is
         address _marketplace,
         bytes calldata _encodedCallData,
         uint256 _orderAmount,
-        IERC20 _paymentToken
+        IERC20 _paymentToken,
+        uint256 _maxPaymentTokenAmount
     )
         external nonReentrant
     {
         IConverter converter = IConverter(converterAddress);
 
         // Calc total needed for this order + adapter fees
-        uint256 totalOrderAmount = _orderAmount.add(
-            _calcOrderFees(_orderAmount)
-        );
+        uint256 orderFees = _calcOrderFees(_orderAmount);
+        uint256 totalOrderAmount = _orderAmount.add(orderFees);
 
+        // Get amount of srcTokens needed for the exchange
         uint256 paymentTokenAmount = converter.calcNeededTokensForEther(
-            _paymentToken,
-            totalOrderAmount
+            _paymentToken, totalOrderAmount
         );
 
-        require(paymentTokenAmount > 0, "MarketAdapter: payment token amount invalid");
+        require(
+            paymentTokenAmount > 0,
+            "MarketAdapter: paymentTokenAmount invalid"
+        );
 
-        // Get Tokens from registry
+        require(
+            paymentTokenAmount <= _maxPaymentTokenAmount,
+            "MarketAdapter: paymentTokenAmount > _maxPaymentTokenAmount"
+        );
+
+        // Get Tokens from sender
         _paymentToken.safeTransferFrom(
-            msg.sender,
-            address(this),
-            paymentTokenAmount
+            msg.sender, address(this), paymentTokenAmount
         );
 
-        // Aprove converter for this paymentTokenAmount transfer
+        // allow converter for this paymentTokenAmount transfer
         _paymentToken.safeApprove(converterAddress, paymentTokenAmount);
 
         // Get ethers from converter
-        uint256 convertedEth = converter.swapTokenToEther(
+        (uint256 convertedEth, uint256 remainderTokenAmount) = converter.swapTokenToEther(
             _paymentToken,
-            paymentTokenAmount
+            paymentTokenAmount,
+            totalOrderAmount // max amount in eth
         );
 
         require(
@@ -177,12 +184,17 @@ contract MarketAdapter is
             "MarketAdapter: invalid ether amount after conversion"
         );
 
+        if (remainderTokenAmount > 0) {
+            _paymentToken.safeTransfer(msg.sender, remainderTokenAmount);
+        }
+
         _buy(
             _registry,
             _tokenId,
             _marketplace,
             _encodedCallData,
-            _orderAmount
+            _orderAmount,
+            orderFees
         );
     }
 
@@ -205,9 +217,8 @@ contract MarketAdapter is
         external payable nonReentrant
     {
         // Calc total needed for this order + adapter fees
-        uint256 totalOrderAmount = _orderAmount.add(
-            _calcOrderFees(_orderAmount)
-        );
+        uint256 orderFees = _calcOrderFees(_orderAmount);
+        uint256 totalOrderAmount = _orderAmount.add(orderFees);
 
         // Check the order + fees
         require(
@@ -220,10 +231,10 @@ contract MarketAdapter is
             _tokenId,
             _marketplace,
             _encodedCallData,
-            _orderAmount
+            _orderAmount,
+            orderFees
         );
     }
-
 
     /**
      * @dev Internal call relays the order to a whitelisted marketplace.
@@ -232,13 +243,15 @@ contract MarketAdapter is
      * @param _marketplace whitelisted marketplace listing the asset.
      * @param _encodedCallData forwarded to whitelisted marketplace.
      * @param _orderAmount (excluding fees) in ethers for the markeplace order
+     * @param _feesAmount in ethers for the order
      */
     function _buy(
         IERC721 _registry,
         uint256 _tokenId,
         address _marketplace,
         bytes memory _encodedCallData,
-        uint256 _orderAmount
+        uint256 _orderAmount,
+        uint256 _feesAmount
     )
         private
     {
@@ -289,7 +302,7 @@ contract MarketAdapter is
             _tokenId,
             _marketplace,
             _orderAmount,
-            _calcOrderFees(_orderAmount)
+            _feesAmount
         );
     }
 

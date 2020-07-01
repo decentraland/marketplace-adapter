@@ -35,49 +35,57 @@ contract KyberConverter is IConverter {
         public view override returns (uint256)
     {
         // check expected rate for this token -> eth pair
-        (uint256 expectedRate, ) = kyberProxy.getExpectedRate(
+        (, uint256 slippageRate) = kyberProxy.getExpectedRate(
             IERC20(0x00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee),
             IERC20(_dstToken),
             _etherAmount
         );
 
-        // return the token amount in _dstToken units
-
         // https://github.com/KyberNetwork/smart-contracts/blob/master/contracts/Utils.sol#L34-L45
         // simplified calcDestQty from with source / destination tokens both having 1e18 precision
 
-        return _etherAmount.mul(expectedRate).div(1e18);
+        // We use slippageRate to account for an exchange rate buffer.
+        return _etherAmount.mul(slippageRate).div(1e18);
     }
 
     function swapTokenToEther(
         IERC20 _srcToken,
-        uint256 _srcAmount
+        uint256 _srcAmount,
+        uint256 _maxDstAmount
     )
-        public override returns (uint256)
+        public override returns (uint256 dstAmount, uint256 srcRemainder)
     {
         require(_srcAmount > 0, "KyberConverter: _srcAmount error");
+
+        // save pre balance
+        uint256 prevSrcBalance = _srcToken.balanceOf(address(this));
 
         // Get Tokens from caller and aprove exchange
         _srcToken.safeTransferFrom(msg.sender, address(this), _srcAmount);
         _srcToken.safeApprove(address(kyberProxy), _srcAmount);
 
-        uint256 dstTokenAmount = kyberProxy.trade(
+        dstAmount = kyberProxy.trade(
             _srcToken,  // srcToken
             _srcAmount, // srcAmount
             IERC20(0x00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee), // dstToken
             msg.sender, // dstAddress
-            MAX_UINT_VALUE, // maxDestAmount
+            _maxDstAmount, // maxDstAmount
             0, // minConversion Rate
             address(0) // walletId for fees sharing
         );
 
-        require(dstTokenAmount > 0, "KyberConverter: Token <> Ether error");
-        require(
-            _srcToken.balanceOf(address(this)) == 0,
-            "KyberConverter: not all source tokens converted"
-        );
+        // clear approval
+        _srcToken.safeApprove(address(kyberProxy), 0);
 
-        return dstTokenAmount;
+        // Check if the amount traded is equal to the expected one
+        require(dstAmount == _maxDstAmount, "KyberConverter: Token <> Ether error");
+
+        srcRemainder = _srcToken.balanceOf(address(this)).sub(prevSrcBalance);
+
+        // If theres a remainder, transfer remainder tokens back to caller
+        if (srcRemainder > 0) {
+            _srcToken.safeTransfer(msg.sender, srcRemainder);
+        }
     }
 
     function swapEtherToToken(

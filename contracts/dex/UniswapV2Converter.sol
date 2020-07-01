@@ -46,9 +46,10 @@ contract UniswapV2Converter is IConverter {
 
     function swapTokenToEther(
         IERC20 _srcToken,
-        uint256 _srcAmount
+        uint256 _srcAmount,
+        uint256 _maxDstAmount
     )
-        public override returns (uint256)
+        public override returns (uint256 dstAmount, uint256 srcRemainder)
     {
         // Get Tokens from caller and aprove exchange
         _srcToken.safeTransferFrom(msg.sender, address(this), _srcAmount);
@@ -67,8 +68,12 @@ contract UniswapV2Converter is IConverter {
             block.timestamp
         );
 
-        // return output token amount
-        return amounts[1];
+        /// Check all tokens converted
+        require(amounts[1] == _maxDstAmount, "UniswapV2Converter: Token <> Ether error");
+
+        // Fill return vars
+        dstAmount = amounts[1];
+        srcRemainder = 0;
     }
 
     function swapEtherToToken(

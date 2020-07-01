@@ -49,11 +49,19 @@ contract SwapProxyMock {
     function _swapTokenToEther(
         IERC20 _srcToken,
         uint256 _srcAmount,
-        address payable _dstAddress
+        address payable _dstAddress,
+        uint256 _maxDstAmount
     )
         internal returns (uint256)
     {
         uint256 etherAmount = calcEthersPerToken(_srcAmount);
+
+        // if theres a limit in the dst amount, use that
+        // to calculate
+        if (_maxDstAmount > 0 && etherAmount > _maxDstAmount) {
+            etherAmount = _maxDstAmount;
+            _srcAmount = calcTokensPerEther(_maxDstAmount);
+        }
 
         // Get tokens, send ethers to caller
         _srcToken.safeTransferFrom(msg.sender, address(this), _srcAmount);
@@ -82,7 +90,9 @@ contract KyberProxyMock is SwapProxyMock, IKyberNetworkProxy {
             super.calcEthersPerToken(srcQty);
 
         expectedRate = dstAmount.mul(1e18).div(srcQty);
-        slippageRate = 0;
+        slippageRate = expectedRate.add(
+            dstAmount.mul(2).div(100) // adds 2%
+        );
     }
 
     function trade(
@@ -90,7 +100,7 @@ contract KyberProxyMock is SwapProxyMock, IKyberNetworkProxy {
         uint256 _srcAmount,
         IERC20 _dstToken,
         address _dstAddress,
-        uint256, // _maxDestAmount,
+        uint256 _maxDestAmount,
         uint256, // _minConversionRate,
         address  // _walletId
     )
@@ -99,7 +109,7 @@ contract KyberProxyMock is SwapProxyMock, IKyberNetworkProxy {
         if (_srcToken == IERC20(0x00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee)) {
             return _swapEtherToToken(_dstToken, msg.value, _dstAddress);
         }
-        return _swapTokenToEther(_srcToken, _srcAmount, payable(_dstAddress));
+        return _swapTokenToEther(_srcToken, _srcAmount, payable(_dstAddress), _maxDestAmount);
     }
 }
 
@@ -136,7 +146,8 @@ contract UniswapRouterMock is SwapProxyMock, IUniswapV2Router02 {
         uint256 convertedTokens = _swapTokenToEther(
             IERC20(_path[0]),
             _amountIn,
-            payable(_to)
+            payable(_to),
+            0
         );
 
         amounts = new uint[](2);
