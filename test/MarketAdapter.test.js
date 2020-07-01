@@ -665,20 +665,9 @@ describe('MarketAdapter', function () {
       const testNegativeTokenIdBuy = async function (
         context,
         tokenId,
-        totalTokensNeeded,
         maxAllowedTokens,
         revertReasonText
       ) {
-
-        // aprove MarketAdapter transfer orderValue in reserveToken
-        await context.reserveTokenMock.approve(
-          context.marketAdapter.address,
-          totalTokensNeeded,
-          {
-            from: someone,
-          }
-        )
-
         // encode buy(_tokenId, _registry) for calling the marketplace mock
         const encodedCallData = context.marketplaceMock.contract.methods
           .buy(tokenId, context.erc721RegistryMock.address)
@@ -742,6 +731,19 @@ describe('MarketAdapter', function () {
           )
         })
 
+        it('reverts if adapter not approved token transfers',  async function () {
+          const tokensMinted = this.orderValue.div(new BN(100))
+
+          // Mint transaction sender ERC20 test tokens
+          await this.reserveTokenMock.mint(someone, tokensMinted)
+          await testNegativeTokenIdBuy(
+            this,
+            '8000',
+            this.maxTokensAllowed,
+            'SafeERC20: low-level call failed'
+          )
+        })
+
         it('reverts (safeTransferFrom) if token balance < tokens needed',  async function () {
 
           const tokensMinted = this.orderValue.div(new BN(100))
@@ -749,10 +751,18 @@ describe('MarketAdapter', function () {
           // Mint transaction sender ERC20 test tokens
           await this.reserveTokenMock.mint(someone, tokensMinted)
 
+          // aprove MarketAdapter transfer orderValue in reserveToken
+          await this.reserveTokenMock.approve(
+            this.marketAdapter.address,
+            this.totalTokensNeeded,
+            {
+              from: someone,
+            }
+          )
+
           await testNegativeTokenIdBuy(
             this,
             '8000',
-            this.totalTokensNeeded,
             this.maxTokensAllowed,
             undefined
           )
@@ -811,10 +821,18 @@ describe('MarketAdapter', function () {
           // Mint transaction sender ERC20 test tokens
           await this.reserveTokenMock.mint(someone, tokensMinted)
 
+          // aprove MarketAdapter transfer orderValue in reserveToken
+          await this.reserveTokenMock.approve(
+            this.marketAdapter.address,
+            this.totalTokensNeeded,
+            {
+              from: someone,
+            }
+          )
+
           await testNegativeTokenIdBuy(
             this,
             '9000',
-            this.totalTokensNeeded,
             this.maxTokensAllowed,
             undefined
           )
