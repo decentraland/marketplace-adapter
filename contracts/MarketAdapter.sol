@@ -140,25 +140,26 @@ contract MarketAdapter is
         IERC721 _registry,
         uint256 _tokenId,
         address _marketplace,
-        bytes calldata _encodedCallData,
+        bytes memory _encodedCallData,
         uint256 _orderAmount,
         IERC20 _paymentToken,
         uint256 _maxPaymentTokenAmount,
         TransferType _transferType,
         address _beneficiary
     )
-        external nonReentrant
+        public nonReentrant
     {
+        IConverter converter = IConverter(converterAddress);
+
         // Calc total needed for this order + adapter fees
         uint256 orderFees = _calcOrderFees(_orderAmount);
         uint256 totalOrderAmount = _orderAmount.add(orderFees);
 
         // Get amount of srcTokens needed for the exchange
-        uint256 paymentTokenAmount = IConverter(converterAddress)
-            .calcNeededTokensForEther(
-                _paymentToken,
-                totalOrderAmount
-            );
+        uint256 paymentTokenAmount = converter.calcNeededTokensForEther(
+            _paymentToken,
+            totalOrderAmount
+        );
 
         require(
             paymentTokenAmount > 0,
@@ -179,12 +180,11 @@ contract MarketAdapter is
         _paymentToken.safeApprove(converterAddress, paymentTokenAmount);
 
         // Get ethers from converter
-        (uint256 convertedEth, uint256 remainderTokenAmount) = IConverter(converterAddress)
-            .swapTokenToEther(
-                _paymentToken,
-                paymentTokenAmount,
-                totalOrderAmount
-            );
+        (uint256 convertedEth, uint256 remainderTokenAmount) = converter.swapTokenToEther(
+            _paymentToken,
+            paymentTokenAmount,
+            totalOrderAmount
+        );
 
         require(
             convertedEth == totalOrderAmount,
