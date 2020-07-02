@@ -106,7 +106,7 @@ describe('MarketFeesCollector', function () {
       )
 
       // get Total Tokens needed for order + fees
-      totalTokensNeeded = await proxyMock.calcTokensPerEther(
+      const totalTokensNeeded = await proxyMock.calcTokensPerEther(
         context.burningBalance,
       );
 
@@ -123,7 +123,7 @@ describe('MarketFeesCollector', function () {
       expectEvent(receipt, 'CollectedFeesBurned', {
         callingAddr: someone,
         etherBalance: context.burningBalance,
-        burnedTokens: totalTokensNeeded,
+        burnedTokens: totalTokensNeeded
       })
 
       /// Post balance check

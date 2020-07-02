@@ -36,6 +36,9 @@ contract MarketAdapter is
     event FeesCollectorChange(address indexed collector);
     event AdapterFeeChange(uint256 previousFee, uint256 newFee);
 
+    // Allowed tranfer type enum
+    enum TransferType { safeTransferFrom, transferFrom, transfer }
+
     // Allowed map of marketplaces
     mapping (address => bool) public whitelistedMarkets;
 
@@ -84,7 +87,6 @@ contract MarketAdapter is
         super.setConverter(_converter);
     }
 
-
     /**
      * @dev Sets whitelisting status for a marketplace
      * @param _marketplace address
@@ -131,6 +133,8 @@ contract MarketAdapter is
      * @param _encodedCallData forwarded to whitelisted marketplace.
      * @param _orderAmount (excluding fees) in ethers for the markeplace order
      * @param _paymentToken ERC20 address of the token used to pay
+     * @param _transferType choice for calling the ERC721 registry
+     * @param _beneficiary where to send the ERC721 token
      */
     function buy(
         IERC721 _registry,
@@ -139,20 +143,22 @@ contract MarketAdapter is
         bytes calldata _encodedCallData,
         uint256 _orderAmount,
         IERC20 _paymentToken,
-        uint256 _maxPaymentTokenAmount
+        uint256 _maxPaymentTokenAmount,
+        TransferType _transferType,
+        address _beneficiary
     )
         external nonReentrant
     {
-        IConverter converter = IConverter(converterAddress);
-
         // Calc total needed for this order + adapter fees
         uint256 orderFees = _calcOrderFees(_orderAmount);
         uint256 totalOrderAmount = _orderAmount.add(orderFees);
 
         // Get amount of srcTokens needed for the exchange
-        uint256 paymentTokenAmount = converter.calcNeededTokensForEther(
-            _paymentToken, totalOrderAmount
-        );
+        uint256 paymentTokenAmount = IConverter(converterAddress)
+            .calcNeededTokensForEther(
+                _paymentToken,
+                totalOrderAmount
+            );
 
         require(
             paymentTokenAmount > 0,
@@ -173,11 +179,12 @@ contract MarketAdapter is
         _paymentToken.safeApprove(converterAddress, paymentTokenAmount);
 
         // Get ethers from converter
-        (uint256 convertedEth, uint256 remainderTokenAmount) = converter.swapTokenToEther(
-            _paymentToken,
-            paymentTokenAmount,
-            totalOrderAmount // max amount in eth
-        );
+        (uint256 convertedEth, uint256 remainderTokenAmount) = IConverter(converterAddress)
+            .swapTokenToEther(
+                _paymentToken,
+                paymentTokenAmount,
+                totalOrderAmount
+            );
 
         require(
             convertedEth == totalOrderAmount,
@@ -194,7 +201,9 @@ contract MarketAdapter is
             _marketplace,
             _encodedCallData,
             _orderAmount,
-            orderFees
+            orderFees,
+            _transferType,
+            _beneficiary
         );
     }
 
@@ -206,13 +215,17 @@ contract MarketAdapter is
      * @param _marketplace whitelisted marketplace listing the asset.
      * @param _encodedCallData forwarded to whitelisted marketplace.
      * @param _orderAmount (excluding fees) in ethers for the markeplace order
+     * @param _transferType choice for calling the ERC721 registry
+     * @param _beneficiary where to send the ERC721 token
      */
     function buy(
         IERC721 _registry,
         uint256 _tokenId,
         address _marketplace,
         bytes calldata _encodedCallData,
-        uint256 _orderAmount
+        uint256 _orderAmount,
+        TransferType _transferType,
+        address _beneficiary
     )
         external payable nonReentrant
     {
@@ -232,7 +245,9 @@ contract MarketAdapter is
             _marketplace,
             _encodedCallData,
             _orderAmount,
-            orderFees
+            orderFees,
+            _transferType,
+            _beneficiary
         );
     }
 
@@ -244,6 +259,8 @@ contract MarketAdapter is
      * @param _encodedCallData forwarded to whitelisted marketplace.
      * @param _orderAmount (excluding fees) in ethers for the markeplace order
      * @param _feesAmount in ethers for the order
+     * @param _transferType choice for calling the ERC721 registry
+     * @param _beneficiary where to send the ERC721 token
      */
     function _buy(
         IERC721 _registry,
@@ -251,7 +268,9 @@ contract MarketAdapter is
         address _marketplace,
         bytes memory _encodedCallData,
         uint256 _orderAmount,
-        uint256 _feesAmount
+        uint256 _feesAmount,
+        TransferType _transferType,
+        address _beneficiary
     )
         private
     {
@@ -294,7 +313,12 @@ contract MarketAdapter is
         }
 
         // Transfer tokenId to caller
-        _registry.safeTransferFrom(address(this), msg.sender, _tokenId);
+        _transferItem(
+            _registry,
+            _tokenId,
+            _transferType,
+            _beneficiary
+        );
 
         // Log succesful executed order
         emit ExecutedOrder(
@@ -303,6 +327,56 @@ contract MarketAdapter is
             _marketplace,
             _orderAmount,
             _feesAmount
+        );
+    }
+
+    /**
+     * @dev Transfer the NFT to the final owner
+     * @param _registry NFT registry address
+     * @param _tokenId listed token Id.
+     * @param _transferType choice for calling the ERC721 registry
+     * @param _beneficiary where to send the ERC721 token
+     */
+    function _transferItem(
+        IERC721 _registry,
+        uint256 _tokenId,
+        TransferType _transferType,
+        address _beneficiary
+    )
+        private
+    {
+        require(_beneficiary != address(this), "MarketAdapter: invalid beneficiary");
+
+        if (_transferType == TransferType.safeTransferFrom) {
+            return _registry.safeTransferFrom(address(this), _beneficiary, _tokenId);
+        }
+
+        bytes memory callData;
+
+        if (_transferType == TransferType.transferFrom) {
+            callData = abi.encodeWithSignature(
+                "transferFrom(address,address,uint256)",
+                address(this),
+                _beneficiary,
+                _tokenId
+            );
+
+        } else if (_transferType == TransferType.transfer) {
+            callData = abi.encodeWithSignature(
+                "transfer(address,uint256)",
+                _beneficiary,
+                _tokenId
+            );
+
+        } else {
+            revert('MarketAdapter: Unsopported transferType');
+        }
+
+        (bool success, ) = address(_registry).call(callData);
+
+        require(
+            success,
+            "MarketAdapter: error with asset transfer"
         );
     }
 
