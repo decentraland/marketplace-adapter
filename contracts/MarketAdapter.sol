@@ -11,7 +11,7 @@ import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 
 import "./ERC721Holder.sol";
 import "./ConverterManager.sol";
-import "./ITransfereableRegistry.sol";
+import "./ITransferableRegistry.sol";
 
 import "./dex/IConverter.sol";
 
@@ -138,7 +138,7 @@ contract MarketAdapter is
      * @param _beneficiary where to send the ERC721 token
      */
     function buy(
-        ITransfereableRegistry _registry,
+        ITransferableRegistry _registry,
         uint256 _tokenId,
         address _marketplace,
         bytes memory _encodedCallData,
@@ -220,7 +220,7 @@ contract MarketAdapter is
      * @param _beneficiary where to send the ERC721 token
      */
     function buy(
-        ITransfereableRegistry _registry,
+        ITransferableRegistry _registry,
         uint256 _tokenId,
         address _marketplace,
         bytes calldata _encodedCallData,
@@ -264,7 +264,7 @@ contract MarketAdapter is
      * @param _beneficiary where to send the ERC721 token
      */
     function _buy(
-        ITransfereableRegistry _registry,
+        ITransferableRegistry _registry,
         uint256 _tokenId,
         address _marketplace,
         bytes memory _encodedCallData,
@@ -339,7 +339,7 @@ contract MarketAdapter is
      * @param _beneficiary where to send the ERC721 token
      */
     function _transferItem(
-        ITransfereableRegistry _registry,
+        ITransferableRegistry _registry,
         uint256 _tokenId,
         TransferType _transferType,
         address _beneficiary
