@@ -11,6 +11,7 @@ import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 
 import "./ERC721Holder.sol";
 import "./ConverterManager.sol";
+import "./ITransfereableRegistry.sol";
 
 import "./dex/IConverter.sol";
 
@@ -137,7 +138,7 @@ contract MarketAdapter is
      * @param _beneficiary where to send the ERC721 token
      */
     function buy(
-        IERC721 _registry,
+        ITransfereableRegistry _registry,
         uint256 _tokenId,
         address _marketplace,
         bytes memory _encodedCallData,
@@ -219,7 +220,7 @@ contract MarketAdapter is
      * @param _beneficiary where to send the ERC721 token
      */
     function buy(
-        IERC721 _registry,
+        ITransfereableRegistry _registry,
         uint256 _tokenId,
         address _marketplace,
         bytes calldata _encodedCallData,
@@ -263,7 +264,7 @@ contract MarketAdapter is
      * @param _beneficiary where to send the ERC721 token
      */
     function _buy(
-        IERC721 _registry,
+        ITransfereableRegistry _registry,
         uint256 _tokenId,
         address _marketplace,
         bytes memory _encodedCallData,
@@ -338,7 +339,7 @@ contract MarketAdapter is
      * @param _beneficiary where to send the ERC721 token
      */
     function _transferItem(
-        IERC721 _registry,
+        ITransfereableRegistry _registry,
         uint256 _tokenId,
         TransferType _transferType,
         address _beneficiary
@@ -348,22 +349,17 @@ contract MarketAdapter is
         require(_beneficiary != address(this), "MarketAdapter: invalid beneficiary");
 
         if (_transferType == TransferType.safeTransferFrom) {
-            return _registry.safeTransferFrom(address(this), _beneficiary, _tokenId);
-        }
+            _registry.safeTransferFrom(address(this), _beneficiary, _tokenId);
 
-        bytes memory callData;
-
-        if (_transferType == TransferType.transferFrom) {
-            callData = abi.encodeWithSignature(
-                "transferFrom(address,address,uint256)",
+        } else if (_transferType == TransferType.transferFrom) {
+            _registry.transferFrom(
                 address(this),
                 _beneficiary,
                 _tokenId
             );
 
         } else if (_transferType == TransferType.transfer) {
-            callData = abi.encodeWithSignature(
-                "transfer(address,uint256)",
+            _registry.transfer(
                 _beneficiary,
                 _tokenId
             );
@@ -372,12 +368,11 @@ contract MarketAdapter is
             revert('MarketAdapter: Unsopported transferType');
         }
 
-        (bool success, ) = address(_registry).call(callData);
-
         require(
-            success,
+            _registry.ownerOf(_tokenId) == _beneficiary,
             "MarketAdapter: error with asset transfer"
         );
+
     }
 
     /**
