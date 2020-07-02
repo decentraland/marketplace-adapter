@@ -222,7 +222,7 @@ contract MarketAdapter is
         ITransferableRegistry _registry,
         uint256 _tokenId,
         address _marketplace,
-        bytes calldata _encodedCallData,
+        bytes memory _encodedCallData,
         uint256 _orderAmount,
         TransferType _transferType,
         address _beneficiary
