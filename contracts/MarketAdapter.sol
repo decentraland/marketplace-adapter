@@ -227,7 +227,7 @@ contract MarketAdapter is
         TransferType _transferType,
         address _beneficiary
     )
-        external payable nonReentrant
+        public payable nonReentrant
     {
         // Calc total needed for this order + adapter fees
         uint256 orderFees = _calcOrderFees(_orderAmount);
