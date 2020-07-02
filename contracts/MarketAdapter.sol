@@ -6,7 +6,6 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 
 import "./ERC721Holder.sol";
@@ -372,7 +371,6 @@ contract MarketAdapter is
             _registry.ownerOf(_tokenId) == _beneficiary,
             "MarketAdapter: error with asset transfer"
         );
-
     }
 
     /**
