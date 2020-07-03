@@ -1,5 +1,21 @@
 {
   "contracts": {},
   "solidityLibs": {},
+  "proxies": {
+    "marketplace-adapter/KyberConverter": [
+      {
+        "address": "0x621Ec2B2467E39d578a4D172182AF55E610cf4B9",
+        "kind": "NonProxy",
+        "bytecodeHash": "a76a04450a4e1ba50467f6972d087420294983bfedc2956cfc1e6862a9991b5c"
+      }
+    ],
+    "marketplace-adapter/UniswapV2Converter": [
+      {
+        "address": "0x5d06D8FE0b791e896801ABc0cc7297F232aD7777",
+        "kind": "NonProxy",
+        "bytecodeHash": "5dd520e2352cd29b43993f5dbb4f31ee3188194bbe55081ce79c912c3f53078c"
+      }
+    ]
+  },
   "manifestVersion": "2.2"
 }
