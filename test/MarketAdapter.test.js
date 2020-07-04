@@ -782,7 +782,7 @@ describe('MarketAdapter', function () {
             this,
             '8000',
             this.maxTokensAllowed,
-            'SafeERC20: low-level call failed'
+            'ERC20: transfer amount exceeds allowance'
           )
         })
 

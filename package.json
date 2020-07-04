@@ -42,5 +42,7 @@
     "url": "https://github.com/decentraland/marketplace-adapter/issues"
   },
   "homepage": "https://github.com/decentraland/marketplace-adapter#readme",
-  "dependencies": {}
+  "dependencies": {
+    "ganache-core": "^2.10.2"
+  }
 }
