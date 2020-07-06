@@ -384,8 +384,6 @@ contract MarketAdapter is
     }
 
     receive() external payable {
-        require(
-            msg.sender == allowedEthSender, "MarketAdapter: sender invalid"
-        );
+        require(msg.sender != tx.origin, "MarketAdapter: sender invalid");
     }
 }

@@ -16,6 +16,7 @@ contract KyberConverter is IConverter {
     IKyberNetworkProxy private immutable kyberProxy;
 
     uint256 constant MAX_UINT_VALUE = 2**256 - 1;
+    uint256 constant GROSSING_UP_PERCENTAGE = 105;
 
     /**
      * @param _kyberProxy KyberProxy address.
@@ -35,7 +36,7 @@ contract KyberConverter is IConverter {
         public view override returns (uint256)
     {
         // check expected rate for this token -> eth pair
-        (, uint256 slippageRate) = kyberProxy.getExpectedRate(
+        (uint256 exchangeRate, ) = kyberProxy.getExpectedRate(
             IERC20(0x00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee),
             IERC20(_dstToken),
             _etherAmount
@@ -44,8 +45,10 @@ contract KyberConverter is IConverter {
         // https://github.com/KyberNetwork/smart-contracts/blob/master/contracts/Utils.sol#L34-L45
         // simplified calcDestQty from with source / destination tokens both having 1e18 precision
 
-        // We use slippageRate to account for an exchange rate buffer.
-        return _etherAmount.mul(slippageRate).div(1e18);
+        return _etherAmount.mul(exchangeRate)
+            .div(1e18)
+            .mul(GROSSING_UP_PERCENTAGE)
+            .div(100);
     }
 
     function swapTokenToEther(
