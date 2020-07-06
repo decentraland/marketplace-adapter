@@ -42,8 +42,8 @@ oz deploy MarketAdapter
 
 ### Converters
 ```
-KyberConverter: 0x621Ec2B2467E39d578a4D172182AF55E610cf4B9
-UniswapConverter: 0x5d06D8FE0b791e896801ABc0cc7297F232aD7777
+KyberConverter: 0x234f6ba3de0494d043e23b5bfb3663366d86272d
+UniswapConverter: 0x2782eb28Dcb1eF4E7632273cd4e347e130Ce4646
 ```
 
 ### MarketFeesCollector
@@ -54,6 +54,6 @@ UniswapConverter: 0x5d06D8FE0b791e896801ABc0cc7297F232aD7777
 
 ### MarketAdapter:
 ```
-- Using Kyber: 0x237a18B36D862444AFD20D2b00b57d79c4A1F474
-- Using Uniswap: 0xb242973f4347975A060E71c3F3eACAe535874Be9
+- Using Kyber: 0xe374D18597A740e037b491B8037928eaf8492e81
+- Using Uniswap: 0xe699aE723d19EAc029A2784BFE0F6AD1468d223c
 ```
