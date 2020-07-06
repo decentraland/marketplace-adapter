@@ -16,7 +16,7 @@ contract KyberConverter is IConverter {
     IKyberNetworkProxy private immutable kyberProxy;
 
     uint256 constant MAX_UINT_VALUE = 2**256 - 1;
-    uint256 constant EXCHANGE_PERCENTAGE_MARGIN = 5;
+    uint256 constant GROSSING_UP_PERCENTAGE = 105;
 
     /**
      * @param _kyberProxy KyberProxy address.
@@ -47,7 +47,7 @@ contract KyberConverter is IConverter {
 
         return _etherAmount.mul(exchangeRate)
             .div(1e18)
-            .mul(EXCHANGE_PERCENTAGE_MARGIN + 100)
+            .mul(GROSSING_UP_PERCENTAGE)
             .div(100);
     }
 
