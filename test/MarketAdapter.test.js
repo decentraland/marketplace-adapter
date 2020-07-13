@@ -58,33 +58,6 @@ describe('MarketAdapter', function () {
     )
   })
 
-  // Marketplace whitelisting
-  describe('Markets whitelisting admin', function () {
-    it('emits MarketplaceAllowance on successful whitelist', async function () {
-      const receipt = await this.marketAdapter.setMarketplaceAllowance(
-        this.marketplaceMock.address,
-        true,
-        { from: owner }
-      )
-
-      expectEvent(receipt, 'MarketplaceAllowance', {
-        marketplace: this.marketplaceMock.address,
-        value: true,
-      })
-    })
-
-    it('reverts when whitelisting from non owner account', async function () {
-      await expectRevert(
-        this.marketAdapter.setMarketplaceAllowance(
-          this.marketplaceMock.address,
-          true,
-          { from: someone }
-        ),
-        'Ownable: caller is not the owner'
-      )
-    })
-  })
-
   // Fees collector
   describe('FeesCollector admin', function () {
     it('emits FeesCollectorChange on succesful set', async function () {
@@ -344,35 +317,6 @@ describe('MarketAdapter', function () {
       })
 
       // Reverts
-
-      it('reverts non-whitelisted marketplace', async function () {
-        const tokenId = '4000'
-
-        // encode buy(_tokenId, _registry) for calling the marketplace mock
-        const encodedCallData = this.marketplaceMock.contract.methods
-          .buy(tokenId, this.erc721RegistryMock.address)
-          .encodeABI()
-
-        await expectRevert(
-          this.marketAdapter.methods[
-            'buy(address,uint256,address,bytes,uint256,uint8,address)'
-          ](
-            this.erc721RegistryMock.address,
-            tokenId,
-            nonWhitelistedMarket, // not whitelisted
-            encodedCallData,
-            this.orderValue,
-            0, // safeTransferFrom
-            someone, // beneficiary
-            {
-              value: this.totalOrderValue,
-              from: someone,
-            }
-          ),
-          'MarketAdapter: dest market is not whitelisted'
-        )
-      })
-
       it('reverts if marketplace failed to execute the order', async function () {
         const tokenId = '4000'
 
