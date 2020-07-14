@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.8;
 
@@ -15,7 +15,7 @@ import "./ITransferableRegistry.sol";
 import "./dex/IConverter.sol";
 
 
-contract MarketAdapter is
+contract BuyAdapter is
     Ownable,
     ReentrancyGuard,
     ERC721Holder,
@@ -38,9 +38,6 @@ contract MarketAdapter is
 
     // Allowed tranfer type enum
     enum TransferType { safeTransferFrom, transferFrom, transfer }
-
-    // Allowed map of marketplaces
-    mapping (address => bool) public whitelistedMarkets;
 
     // Order execution fee in a 0 - 1000000 basis
     uint256 public adapterTransactionFee;
@@ -88,21 +85,6 @@ contract MarketAdapter is
     }
 
     /**
-     * @dev Sets whitelisting status for a marketplace
-     * @param _marketplace address
-     * @param _action true if allowed, false otherwise
-     */
-    function setMarketplaceAllowance(
-        address _marketplace,
-        bool _action
-    )
-        external onlyOwner
-    {
-        whitelistedMarkets[_marketplace] = _action;
-        emit MarketplaceAllowance(_marketplace, _action);
-    }
-
-    /**
      * @dev Sets fees collector for the adapter
      * @param _collector Address for the fees collector
      */
@@ -118,7 +100,7 @@ contract MarketAdapter is
     function setAdapterFee(uint256 _transactionFee) public onlyOwner {
         require(
             ADAPTER_FEE_MAX >= _transactionFee,
-            "MarketAdapter: Invalid transaction fee"
+            "BuyAdapter: Invalid transaction fee"
         );
         emit AdapterFeeChange(adapterTransactionFee, _transactionFee);
         adapterTransactionFee = _transactionFee;
@@ -129,8 +111,8 @@ contract MarketAdapter is
      *  swap erc20 tokens to ethers and call _buy() with the exact ether amount
      * @param _registry NFT registry address
      * @param _tokenId listed asset Id.
-     * @param _marketplace whitelisted marketplace listing the asset.
-     * @param _encodedCallData forwarded to whitelisted marketplace.
+     * @param _marketplace marketplace listing the asset.
+     * @param _encodedCallData forwarded to _marketplace.
      * @param _orderAmount (excluding fees) in ethers for the markeplace order
      * @param _paymentToken ERC20 address of the token used to pay
      * @param _transferType choice for calling the ERC721 registry
@@ -163,12 +145,12 @@ contract MarketAdapter is
 
         require(
             paymentTokenAmount > 0,
-            "MarketAdapter: paymentTokenAmount invalid"
+            "BuyAdapter: paymentTokenAmount invalid"
         );
 
         require(
             paymentTokenAmount <= _maxPaymentTokenAmount,
-            "MarketAdapter: paymentTokenAmount > _maxPaymentTokenAmount"
+            "BuyAdapter: paymentTokenAmount > _maxPaymentTokenAmount"
         );
 
         // Get Tokens from sender
@@ -188,7 +170,7 @@ contract MarketAdapter is
 
         require(
             convertedEth == totalOrderAmount,
-            "MarketAdapter: invalid ether amount after conversion"
+            "BuyAdapter: invalid ether amount after conversion"
         );
 
         if (remainderTokenAmount > 0) {
@@ -212,8 +194,8 @@ contract MarketAdapter is
      *  from message value.
      * @param _registry NFT registry address
      * @param _tokenId listed asset Id.
-     * @param _marketplace whitelisted marketplace listing the asset.
-     * @param _encodedCallData forwarded to whitelisted marketplace.
+     * @param _marketplace marketplace listing the asset.
+     * @param _encodedCallData forwarded to the _marketplace.
      * @param _orderAmount (excluding fees) in ethers for the markeplace order
      * @param _transferType choice for calling the ERC721 registry
      * @param _beneficiary where to send the ERC721 token
@@ -236,7 +218,7 @@ contract MarketAdapter is
         // Check the order + fees
         require(
             msg.value == totalOrderAmount,
-            "MarketAdapter: invalid msg.value != (order + fees)"
+            "BuyAdapter: invalid msg.value != (order + fees)"
         );
 
         _buy(
@@ -252,11 +234,11 @@ contract MarketAdapter is
     }
 
     /**
-     * @dev Internal call relays the order to a whitelisted marketplace.
+     * @dev Internal call relays the order to a _marketplace.
      * @param _registry NFT registry address
      * @param _tokenId listed asset Id.
-     * @param _marketplace whitelisted marketplace listing the asset.
-     * @param _encodedCallData forwarded to whitelisted marketplace.
+     * @param _marketplace marketplace listing the asset.
+     * @param _encodedCallData forwarded to _marketplace.
      * @param _orderAmount (excluding fees) in ethers for the markeplace order
      * @param _feesAmount in ethers for the order
      * @param _transferType choice for calling the ERC721 registry
@@ -274,12 +256,8 @@ contract MarketAdapter is
     )
         private
     {
-        require(_orderAmount > 0, "MarketAdapter: invalid order value");
-
-        require(
-            whitelistedMarkets[_marketplace],
-            "MarketAdapter: dest market is not whitelisted"
-        );
+        require(_orderAmount > 0, "BuyAdapter: invalid order value");
+        require(adapterFeesCollector != address(0), "BuyAdapter: fees Collector must be set");
 
         // Save contract balance before call to marketplace
         uint256 preCallBalance = address(this).balance;
@@ -291,26 +269,24 @@ contract MarketAdapter is
 
         require(
             success,
-            "MarketAdapter: marketplace failed to execute buy order"
+            "BuyAdapter: marketplace failed to execute buy order"
         );
 
         require(
             address(this).balance == preCallBalance.sub(_orderAmount),
-            "MarketAdapter: postcall balance mismatch"
+            "BuyAdapter: postcall balance mismatch"
         );
 
         require(
             _registry.ownerOf(_tokenId) == address(this),
-            "MarketAdapter: tokenId not transfered"
+            "BuyAdapter: tokenId not transfered"
         );
 
         // Send balance to Collector. Reverts on failure
-        if (adapterFeesCollector != address(0) && address(this).balance > 0) {
-            require(
-                adapterFeesCollector.send(address(this).balance),
-                "MarketAdapter: error sending fees to collector"
-            );
-        }
+        require(
+            adapterFeesCollector.send(address(this).balance),
+            "BuyAdapter: error sending fees to collector"
+        );
 
         // Transfer tokenId to caller
         _transferItem(
@@ -345,7 +321,7 @@ contract MarketAdapter is
     )
         private
     {
-        require(_beneficiary != address(this), "MarketAdapter: invalid beneficiary");
+        require(_beneficiary != address(this), "BuyAdapter: invalid beneficiary");
 
         if (_transferType == TransferType.safeTransferFrom) {
             _registry.safeTransferFrom(address(this), _beneficiary, _tokenId);
@@ -364,12 +340,12 @@ contract MarketAdapter is
             );
 
         } else {
-            revert('MarketAdapter: Unsopported transferType');
+            revert('BuyAdapter: Unsopported transferType');
         }
 
         require(
             _registry.ownerOf(_tokenId) == _beneficiary,
-            "MarketAdapter: error with asset transfer"
+            "BuyAdapter: error with asset transfer"
         );
     }
 
@@ -384,6 +360,6 @@ contract MarketAdapter is
     }
 
     receive() external payable {
-        require(msg.sender != tx.origin, "MarketAdapter: sender invalid");
+        require(msg.sender != tx.origin, "BuyAdapter: sender invalid");
     }
 }

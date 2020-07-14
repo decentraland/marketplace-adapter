@@ -8,7 +8,7 @@ const {
   expectRevert, // Assertions for transactions that should fail
 } = require('@openzeppelin/test-helpers')
 
-const MarketAdapter = contract.fromArtifact('MarketAdapter')
+const BuyAdapter = contract.fromArtifact('BuyAdapter')
 const KyberConverter = contract.fromArtifact('KyberConverter')
 const UniswapV2Converter = contract.fromArtifact('UniswapV2Converter')
 const MarketFeesCollector = contract.fromArtifact('MarketFeesCollector')
@@ -24,10 +24,11 @@ const NonReceiverMock = contract.fromArtifact('NonReceiverMock')
 
 require('chai').should()
 
-describe('MarketAdapter', function () {
-  const [owner, someone, nonWhitelistedMarket] = accounts
+describe('BuyAdapter', function () {
+  const [owner, someone] = accounts
 
   before(async function () {
+    this.timeout(Infinity)
     // create a test ERC20 for the payments
     this.reserveTokenMock = await ERC20MockBase.new({ from: owner })
 
@@ -39,7 +40,7 @@ describe('MarketAdapter', function () {
 
     // Create a marketplace adapter
     this.marketAdapterFees = 0
-    this.marketAdapter = await MarketAdapter.new(
+    this.buyAdapter = await BuyAdapter.new(
       constants.ZERO_ADDRESS,
       constants.ZERO_ADDRESS,
       this.marketAdapterFees,
@@ -58,37 +59,10 @@ describe('MarketAdapter', function () {
     )
   })
 
-  // Marketplace whitelisting
-  describe('Markets whitelisting admin', function () {
-    it('emits MarketplaceAllowance on successful whitelist', async function () {
-      const receipt = await this.marketAdapter.setMarketplaceAllowance(
-        this.marketplaceMock.address,
-        true,
-        { from: owner }
-      )
-
-      expectEvent(receipt, 'MarketplaceAllowance', {
-        marketplace: this.marketplaceMock.address,
-        value: true,
-      })
-    })
-
-    it('reverts when whitelisting from non owner account', async function () {
-      await expectRevert(
-        this.marketAdapter.setMarketplaceAllowance(
-          this.marketplaceMock.address,
-          true,
-          { from: someone }
-        ),
-        'Ownable: caller is not the owner'
-      )
-    })
-  })
-
   // Fees collector
   describe('FeesCollector admin', function () {
     it('emits FeesCollectorChange on succesful set', async function () {
-      const receipt = await this.marketAdapter.setFeesCollector(
+      const receipt = await this.buyAdapter.setFeesCollector(
         this.marketFeesCollector.address,
         { from: owner }
       )
@@ -100,7 +74,7 @@ describe('MarketAdapter', function () {
 
     it('reverts when setting FeesCollector from non owner account', async function () {
       await expectRevert(
-        this.marketAdapter.setFeesCollector(this.marketFeesCollector.address, {
+        this.buyAdapter.setFeesCollector(this.marketFeesCollector.address, {
           from: someone,
         }),
         'Ownable: caller is not the owner'
@@ -112,7 +86,7 @@ describe('MarketAdapter', function () {
   describe('Adapter fee admin', function () {
     it('emits AdapterFeeChange on succesful set', async function () {
       const adapterFee = 10000
-      const receipt = await this.marketAdapter.setAdapterFee(adapterFee, {
+      const receipt = await this.buyAdapter.setAdapterFee(adapterFee, {
         from: owner,
       })
 
@@ -125,16 +99,16 @@ describe('MarketAdapter', function () {
     it('reverts when setting AdapterFee from non owner account', async function () {
       const adapterFee = 100
       await expectRevert(
-        this.marketAdapter.setAdapterFee(adapterFee, { from: someone }),
+        this.buyAdapter.setAdapterFee(adapterFee, { from: someone }),
         'Ownable: caller is not the owner'
       )
     })
 
     it('reverts when setting AdapterFee > ADAPTER_FEE_MAX', async function () {
-      const maxAllowedFee = await this.marketAdapter.ADAPTER_FEE_MAX()
+      const maxAllowedFee = await this.buyAdapter.ADAPTER_FEE_MAX()
       await expectRevert(
-        this.marketAdapter.setAdapterFee(maxAllowedFee + 1, { from: owner }),
-        'MarketAdapter: Invalid transaction fee'
+        this.buyAdapter.setAdapterFee(maxAllowedFee + 1, { from: owner }),
+        'BuyAdapter: Invalid transaction fee'
       )
     })
   })
@@ -142,23 +116,33 @@ describe('MarketAdapter', function () {
   // Receive
   describe('Testing receive() method', function () {
     it('reverts sending ethers from not allowed address', async function () {
-      const randomValue = new BN(`{1e18}`);
+      const randomValue = new BN(`{1e18}`)
       await expectRevert(
-        this.marketAdapter.send(randomValue, { from: someone }),
-        "MarketAdapter: sender invalid"
+        this.buyAdapter.send(randomValue, { from: someone }),
+        'BuyAdapter: sender invalid'
       )
     })
   })
 
   // Buy method
   describe('Calling adapter buy()', function () {
-
     before(async function () {
       // Mint test tokens to marketplace
       const tokenArr = [
-        '100', '200', '300', '400', //
-        '1000', '2000', '3000', '4000', '5000', '6000', '7000', '8000', '9000'
-      ];
+        '100',
+        '200',
+        '300',
+        '400',
+        '1000',
+        '2000',
+        '3000',
+        '4000',
+        '5000',
+        '6000',
+        '7000',
+        '8000',
+        '9000',
+      ]
 
       for (const tokenId of tokenArr) {
         await this.erc721RegistryMock.mint(
@@ -169,8 +153,8 @@ describe('MarketAdapter', function () {
 
       // Get configured Fees and FeeBasis
       const [marketFee, marketFeeBasis] = await Promise.all([
-        this.marketAdapter.adapterTransactionFee(),
-        this.marketAdapter.ADAPTER_FEE_PRECISION(),
+        this.buyAdapter.adapterTransactionFee(),
+        this.buyAdapter.ADAPTER_FEE_PRECISION(),
       ])
 
       // Set order Value and fees
@@ -178,11 +162,10 @@ describe('MarketAdapter', function () {
       this.orderFees = this.orderValue.mul(marketFee).div(marketFeeBasis)
 
       // Total Order + fees
-      this.totalOrderValue = this.orderValue.add(this.orderFees);
+      this.totalOrderValue = this.orderValue.add(this.orderFees)
     })
 
     describe('Payment in ethers', function () {
-
       it('emits ExecutedOrder with onERC721Received callback', async function () {
         const tokenId = '1000'
 
@@ -193,15 +176,17 @@ describe('MarketAdapter', function () {
 
         const userTracker = await balance.tracker(someone)
         const ownerTracker = await balance.tracker(this.marketplaceMock.address)
-        const adapterTracker = await balance.tracker(this.marketAdapter.address)
-        const collectorTracker = await balance.tracker(this.marketFeesCollector.address)
+        const adapterTracker = await balance.tracker(this.buyAdapter.address)
+        const collectorTracker = await balance.tracker(
+          this.marketFeesCollector.address
+        )
 
         const userPreBalance = await userTracker.get()
         const ownerPreBalance = await ownerTracker.get()
         const adapterPreBalance = await adapterTracker.get()
         const collectorPreBalance = await collectorTracker.get()
 
-        const receipt = await this.marketAdapter.methods[
+        const receipt = await this.buyAdapter.methods[
           'buy(address,uint256,address,bytes,uint256,uint8,address)'
         ](
           this.erc721RegistryMock.address,
@@ -214,7 +199,7 @@ describe('MarketAdapter', function () {
           {
             value: this.totalOrderValue, // value + fees
             from: someone,
-            gasPrice: 0
+            gasPrice: 0,
           }
         )
 
@@ -251,8 +236,8 @@ describe('MarketAdapter', function () {
         )
 
         /// check beneficiary is owner of the NFT
-        const itemOwner = await this.erc721RegistryMock.ownerOf(tokenId);
-        itemOwner.should.be.eq(someone);
+        const itemOwner = await this.erc721RegistryMock.ownerOf(tokenId)
+        itemOwner.should.be.eq(someone)
       })
 
       it('emits ExecutedOrder with (Deprecated) onERC721Received callback', async function () {
@@ -266,7 +251,7 @@ describe('MarketAdapter', function () {
         const tracker = await balance.tracker(someone)
         const preBalance = await tracker.get()
 
-        const receipt = await this.marketAdapter.methods[
+        const receipt = await this.buyAdapter.methods[
           'buy(address,uint256,address,bytes,uint256,uint8,address)'
         ](
           this.erc721RegistryMock.address,
@@ -279,7 +264,7 @@ describe('MarketAdapter', function () {
           {
             value: this.totalOrderValue,
             from: someone,
-            gasPrice: 0
+            gasPrice: 0,
           }
         )
 
@@ -294,9 +279,7 @@ describe('MarketAdapter', function () {
         /// Post balance check
         const postBalance = await tracker.get()
 
-        postBalance.should.be.bignumber.eq(
-          preBalance.sub(this.totalOrderValue)
-        )
+        postBalance.should.be.bignumber.eq(preBalance.sub(this.totalOrderValue))
       })
 
       it('emits ExecutedOrder without onERC721Received callback', async function () {
@@ -310,7 +293,7 @@ describe('MarketAdapter', function () {
         const tracker = await balance.tracker(someone)
         const preBalance = await tracker.get()
 
-        const receipt = await this.marketAdapter.methods[
+        const receipt = await this.buyAdapter.methods[
           'buy(address,uint256,address,bytes,uint256,uint8,address)'
         ](
           this.erc721RegistryMock.address,
@@ -323,7 +306,7 @@ describe('MarketAdapter', function () {
           {
             value: this.totalOrderValue,
             from: someone,
-            gasPrice: 0
+            gasPrice: 0,
           }
         )
 
@@ -338,41 +321,10 @@ describe('MarketAdapter', function () {
         /// Post balance check
         const postBalance = await tracker.get()
 
-        postBalance.should.be.bignumber.eq(
-          preBalance.sub(this.totalOrderValue)
-        )
+        postBalance.should.be.bignumber.eq(preBalance.sub(this.totalOrderValue))
       })
 
       // Reverts
-
-      it('reverts non-whitelisted marketplace', async function () {
-        const tokenId = '4000'
-
-        // encode buy(_tokenId, _registry) for calling the marketplace mock
-        const encodedCallData = this.marketplaceMock.contract.methods
-          .buy(tokenId, this.erc721RegistryMock.address)
-          .encodeABI()
-
-        await expectRevert(
-          this.marketAdapter.methods[
-            'buy(address,uint256,address,bytes,uint256,uint8,address)'
-          ](
-            this.erc721RegistryMock.address,
-            tokenId,
-            nonWhitelistedMarket, // not whitelisted
-            encodedCallData,
-            this.orderValue,
-            0, // safeTransferFrom
-            someone, // beneficiary
-            {
-              value: this.totalOrderValue,
-              from: someone,
-            }
-          ),
-          'MarketAdapter: dest market is not whitelisted'
-        )
-      })
-
       it('reverts if marketplace failed to execute the order', async function () {
         const tokenId = '4000'
 
@@ -382,7 +334,7 @@ describe('MarketAdapter', function () {
           .encodeABI()
 
         await expectRevert(
-          this.marketAdapter.methods[
+          this.buyAdapter.methods[
             'buy(address,uint256,address,bytes,uint256,uint8,address)'
           ](
             this.erc721RegistryMock.address,
@@ -397,7 +349,7 @@ describe('MarketAdapter', function () {
               from: someone,
             }
           ),
-          'MarketAdapter: marketplace failed to execute buy order'
+          'BuyAdapter: marketplace failed to execute buy order'
         )
       })
 
@@ -410,7 +362,7 @@ describe('MarketAdapter', function () {
           .encodeABI()
 
         await expectRevert(
-          this.marketAdapter.methods[
+          this.buyAdapter.methods[
             'buy(address,uint256,address,bytes,uint256,uint8,address)'
           ](
             this.erc721RegistryMock.address,
@@ -425,7 +377,7 @@ describe('MarketAdapter', function () {
               from: someone,
             }
           ),
-          'MarketAdapter: tokenId not transfered'
+          'BuyAdapter: tokenId not transfered'
         )
       })
 
@@ -438,7 +390,7 @@ describe('MarketAdapter', function () {
           .encodeABI()
 
         await expectRevert(
-          this.marketAdapter.methods[
+          this.buyAdapter.methods[
             'buy(address,uint256,address,bytes,uint256,uint8,address)'
           ](
             this.erc721RegistryMock.address,
@@ -453,7 +405,7 @@ describe('MarketAdapter', function () {
               from: someone,
             }
           ),
-          'MarketAdapter: invalid msg.value != (order + fees)'
+          'BuyAdapter: invalid msg.value != (order + fees)'
         )
       })
 
@@ -466,7 +418,7 @@ describe('MarketAdapter', function () {
           .encodeABI()
 
         await expectRevert(
-          this.marketAdapter.methods[
+          this.buyAdapter.methods[
             'buy(address,uint256,address,bytes,uint256,uint8,address)'
           ](
             this.erc721RegistryMock.address,
@@ -481,69 +433,62 @@ describe('MarketAdapter', function () {
               from: someone,
             }
           ),
-          'MarketAdapter: postcall balance mismatch'
+          'BuyAdapter: postcall balance mismatch'
         )
       })
 
       describe('Without FeesCollector', function () {
-
         // remove collector
         before(async function () {
-          await this.marketAdapter.setFeesCollector(
-            constants.ZERO_ADDRESS, { from: owner }
-          );
-        });
+          await this.buyAdapter.setFeesCollector(constants.ZERO_ADDRESS, {
+            from: owner,
+          })
+        })
 
-        it('check fees are retained', async function () {
+        it('reverts if collector was not set', async function () {
           const tokenId = '4000'
-
-          const tracker = await balance.tracker(this.marketAdapter.address)
-          const preBalance = await tracker.get()
 
           // encode buy(_tokenId, _registry) for calling the marketplace mock
           const encodedCallData = this.marketplaceMock.contract.methods
             .buy(tokenId, this.erc721RegistryMock.address)
             .encodeABI()
 
-          await this.marketAdapter.methods[
-            'buy(address,uint256,address,bytes,uint256,uint8,address)'
-          ](
-            this.erc721RegistryMock.address,
-            tokenId,
-            this.marketplaceMock.address,
-            encodedCallData,
-            this.orderValue,
-            0, // safeTransferFrom
-            someone, // beneficiary
-            {
-              value: this.totalOrderValue,
-              from: someone,
-            }
-          )
-
-          const postBalance = await tracker.get()
-
-          postBalance.should.be.bignumber.eq(
-            preBalance.add(this.orderFees)
+          await expectRevert(
+            this.buyAdapter.methods[
+              'buy(address,uint256,address,bytes,uint256,uint8,address)'
+            ](
+              this.erc721RegistryMock.address,
+              tokenId,
+              this.marketplaceMock.address,
+              encodedCallData,
+              this.orderValue,
+              0, // safeTransferFrom
+              someone, // beneficiary
+              {
+                value: this.totalOrderValue,
+                from: someone,
+              }
+            ),
+            'BuyAdapter: fees Collector must be set'
           )
         })
 
         it('check total fees accumulated are sent on next transaction', async function () {
-
           // restore fees collector
-          await this.marketAdapter.setFeesCollector(
-            this.marketFeesCollector.address, { from: owner }
-          );
+          await this.buyAdapter.setFeesCollector(
+            this.marketFeesCollector.address,
+            { from: owner }
+          )
 
           const tokenId = '5000'
-          const tracker = await balance.tracker(this.marketAdapter.address)
+          const tracker = await balance.tracker(this.buyAdapter.address)
 
           // encode buy(_tokenId, _registry) for calling the marketplace mock
           const encodedCallData = this.marketplaceMock.contract.methods
             .buy(tokenId, this.erc721RegistryMock.address)
             .encodeABI()
 
-          await this.marketAdapter.methods[
+          await this.buyAdapter.methods[
             'buy(address,uint256,address,bytes,uint256,uint8,address)'
           ](
             this.erc721RegistryMock.address,
@@ -565,17 +510,16 @@ describe('MarketAdapter', function () {
       })
 
       describe('With wrong FeesCollector', function () {
-
         // change collector to a contract that not implements receive()
         before(async function () {
           const nonReceiver = await NonReceiverMock.new({ from: owner })
 
-          await this.marketAdapter.setFeesCollector(
-            nonReceiver.address, { from: owner }
-          );
-        });
+          await this.buyAdapter.setFeesCollector(nonReceiver.address, {
+            from: owner,
+          })
+        })
 
-        it('reverts if fees can\'t be send to collector', async function () {
+        it("reverts if fees can't be send to collector", async function () {
           const tokenId = '6000'
 
           // encode buy(_tokenId, _registry) for calling the marketplace mock
@@ -584,7 +528,7 @@ describe('MarketAdapter', function () {
             .encodeABI()
 
           await expectRevert(
-            this.marketAdapter.methods[
+            this.buyAdapter.methods[
               'buy(address,uint256,address,bytes,uint256,uint8,address)'
             ](
               this.erc721RegistryMock.address,
@@ -599,21 +543,21 @@ describe('MarketAdapter', function () {
                 from: someone,
               }
             ),
-            'MarketAdapter: error sending fees to collector'
+            'BuyAdapter: error sending fees to collector'
           )
         })
 
         // Change back fees collector
         after(async function () {
-          await this.marketAdapter.setFeesCollector(
-            this.marketFeesCollector.address, { from: owner }
-          );
-        });
+          await this.buyAdapter.setFeesCollector(
+            this.marketFeesCollector.address,
+            { from: owner }
+          )
+        })
       })
     })
 
     describe('Payment in ERC20', function () {
-
       before(async function () {
         this.kyberProxy = await KyberProxyMock.new({ from: owner })
         this.uniswapProxy = await UniswapRouterMock.new({ from: owner })
@@ -625,16 +569,15 @@ describe('MarketAdapter', function () {
         totalTokensNeeded,
         maxAllowedTokens
       ) {
-
         // Mint transaction sender ERC20 test tokens
         await context.reserveTokenMock.mint(someone, maxAllowedTokens)
 
-        // aprove MarketAdapter transfer orderValue in reserveToken
+        // aprove BuyAdapter transfer orderValue in reserveToken
         await context.reserveTokenMock.approve(
-          context.marketAdapter.address,
+          context.buyAdapter.address,
           maxAllowedTokens,
           {
-            from: someone
+            from: someone,
           }
         )
 
@@ -644,16 +587,20 @@ describe('MarketAdapter', function () {
           .encodeABI()
 
         // Balance trackers
-        const ownerTracker = await balance.tracker(context.marketplaceMock.address)
-        const adapterTracker = await balance.tracker(context.marketAdapter.address)
-        const collectorTracker = await balance.tracker(context.marketFeesCollector.address)
+        const ownerTracker = await balance.tracker(
+          context.marketplaceMock.address
+        )
+        const adapterTracker = await balance.tracker(context.buyAdapter.address)
+        const collectorTracker = await balance.tracker(
+          context.marketFeesCollector.address
+        )
 
         const userPreBalance = await context.reserveTokenMock.balanceOf(someone)
         const ownerPreBalance = await ownerTracker.get()
         const adapterPreBalance = await adapterTracker.get()
         const collectorPreBalance = await collectorTracker.get()
 
-        const receipt = await context.marketAdapter.methods[
+        const receipt = await context.buyAdapter.methods[
           'buy(address,uint256,address,bytes,uint256,address,uint256,uint8,address)'
         ](
           context.erc721RegistryMock.address,
@@ -671,7 +618,9 @@ describe('MarketAdapter', function () {
         )
 
         /// Post balance checks
-        const userPostBalance = await context.reserveTokenMock.balanceOf(someone)
+        const userPostBalance = await context.reserveTokenMock.balanceOf(
+          someone
+        )
         const ownerPostBalance = await ownerTracker.get()
         const adapterPostBalance = await adapterTracker.get()
         const collectorPostBalance = await collectorTracker.get()
@@ -714,7 +663,7 @@ describe('MarketAdapter', function () {
           .buy(tokenId, context.erc721RegistryMock.address)
           .encodeABI()
 
-        const txPromise = context.marketAdapter.methods[
+        const txPromise = context.buyAdapter.methods[
           'buy(address,uint256,address,bytes,uint256,address,uint256,uint8,address)'
         ](
           context.erc721RegistryMock.address,
@@ -729,32 +678,29 @@ describe('MarketAdapter', function () {
           {
             from: someone,
           }
-        );
+        )
 
         if (revertReasonText) {
           await expectRevert(txPromise, revertReasonText)
-
         } else {
           await expectRevert.unspecified(txPromise)
-
         }
       }
 
       describe('Using Kyber', function () {
         before(async function () {
+          this.converter = await KyberConverter.new(this.kyberProxy.address, {
+            from: owner,
+          })
 
-          this.converter = await KyberConverter.new(
-            this.kyberProxy.address, { from: owner }
-          )
-
-          await this.marketAdapter.setConverter(this.converter.address, {
+          await this.buyAdapter.setConverter(this.converter.address, {
             from: owner,
           })
 
           // get Total Tokens needed for order + fees
           this.totalTokensNeeded = await this.kyberProxy.calcTokensPerEther(
-            this.totalOrderValue,
-          );
+            this.totalOrderValue
+          )
 
           // Add a 5% to the tokens needed order as maxTokens allowed to spend
           this.maxTokensAllowed = this.totalTokensNeeded.add(
@@ -774,7 +720,7 @@ describe('MarketAdapter', function () {
           )
         })
 
-        it('reverts if adapter not approved token transfers',  async function () {
+        it('reverts if adapter not approved token transfers', async function () {
           // Mint transaction sender ERC20 test tokens
           await this.reserveTokenMock.mint(someone, this.maxTokensAllowed)
 
@@ -786,13 +732,13 @@ describe('MarketAdapter', function () {
           )
         })
 
-        it('reverts if maxTokensAllowed is < needed',  async function () {
+        it('reverts if maxTokensAllowed is < needed', async function () {
           // Mint transaction sender ERC20 test tokens
           await this.reserveTokenMock.mint(someone, this.maxTokensAllowed)
 
-          // aprove MarketAdapter transfer orderValue in reserveToken
+          // aprove BuyAdapter transfer orderValue in reserveToken
           await this.reserveTokenMock.approve(
-            this.marketAdapter.address,
+            this.buyAdapter.address,
             this.maxTokensAllowed,
             {
               from: someone,
@@ -803,20 +749,19 @@ describe('MarketAdapter', function () {
             this,
             '8000',
             this.totalTokensNeeded, // send not enought tokens to fulfill the order
-            'MarketAdapter: paymentTokenAmount > _maxPaymentTokenAmount'
+            'BuyAdapter: paymentTokenAmount > _maxPaymentTokenAmount'
           )
         })
 
-        it('reverts (safeTransferFrom) if token balance < tokens needed',  async function () {
-
+        it('reverts (safeTransferFrom) if token balance < tokens needed', async function () {
           const tokensMinted = this.orderValue.div(new BN(100))
 
           // Mint transaction sender ERC20 test tokens
           await this.reserveTokenMock.mint(someone, tokensMinted)
 
-          // aprove MarketAdapter transfer orderValue in reserveToken
+          // aprove BuyAdapter transfer orderValue in reserveToken
           await this.reserveTokenMock.approve(
-            this.marketAdapter.address,
+            this.buyAdapter.address,
             this.totalTokensNeeded,
             {
               from: someone,
@@ -835,29 +780,28 @@ describe('MarketAdapter', function () {
             constants.ZERO_ADDRESS,
             tokensMinted,
             {
-              from: someone
+              from: someone,
             }
           )
         })
-
       })
 
       describe('Using Uniswap', function () {
         before(async function () {
-
           this.converter = await UniswapV2Converter.new(
-            this.uniswapProxy.address, { from: owner }
+            this.uniswapProxy.address,
+            { from: owner }
           )
 
           // set converter
-          await this.marketAdapter.setConverter(this.converter.address, {
+          await this.buyAdapter.setConverter(this.converter.address, {
             from: owner,
           })
 
           // get Total Tokens needed for order + fees
           this.totalTokensNeeded = await this.uniswapProxy.calcTokensPerEther(
-            this.totalOrderValue,
-          );
+            this.totalOrderValue
+          )
 
           // Add a 5% to the tokens needed order as maxTokens allowed to spend
           this.maxTokensAllowed = this.totalTokensNeeded.add(
@@ -877,16 +821,15 @@ describe('MarketAdapter', function () {
           )
         })
 
-        it('reverts (safeTransferFrom) if token balance < tokens needed',  async function () {
-
+        it('reverts (safeTransferFrom) if token balance < tokens needed', async function () {
           const tokensMinted = this.orderValue.div(new BN(100))
 
           // Mint transaction sender ERC20 test tokens
           await this.reserveTokenMock.mint(someone, tokensMinted)
 
-          // aprove MarketAdapter transfer orderValue in reserveToken
+          // aprove BuyAdapter transfer orderValue in reserveToken
           await this.reserveTokenMock.approve(
-            this.marketAdapter.address,
+            this.buyAdapter.address,
             this.totalTokensNeeded,
             {
               from: someone,
@@ -905,7 +848,7 @@ describe('MarketAdapter', function () {
             constants.ZERO_ADDRESS,
             tokensMinted,
             {
-              from: someone
+              from: someone,
             }
           )
         })
@@ -921,7 +864,7 @@ describe('MarketAdapter', function () {
           .buyWithoutERC721Reveived(tokenId, this.erc721RegistryMock.address)
           .encodeABI()
 
-        const receipt = await this.marketAdapter.methods[
+        const receipt = await this.buyAdapter.methods[
           'buy(address,uint256,address,bytes,uint256,uint8,address)'
         ](
           this.erc721RegistryMock.address,
@@ -934,7 +877,7 @@ describe('MarketAdapter', function () {
           {
             value: this.totalOrderValue,
             from: someone,
-            gasPrice: 0
+            gasPrice: 0,
           }
         )
 
@@ -947,8 +890,8 @@ describe('MarketAdapter', function () {
         })
 
         /// check beneficiary is owner of the NFT
-        const itemOwner = await this.erc721RegistryMock.ownerOf(tokenId);
-        itemOwner.should.be.eq(someone);
+        const itemOwner = await this.erc721RegistryMock.ownerOf(tokenId)
+        itemOwner.should.be.eq(someone)
       })
 
       it('order OK using transfer()', async function () {
@@ -959,7 +902,7 @@ describe('MarketAdapter', function () {
           .buyWithoutERC721Reveived(tokenId, this.erc721RegistryMock.address)
           .encodeABI()
 
-        const receipt = await this.marketAdapter.methods[
+        const receipt = await this.buyAdapter.methods[
           'buy(address,uint256,address,bytes,uint256,uint8,address)'
         ](
           this.erc721RegistryMock.address,
@@ -972,7 +915,7 @@ describe('MarketAdapter', function () {
           {
             value: this.totalOrderValue,
             from: someone,
-            gasPrice: 0
+            gasPrice: 0,
           }
         )
 
@@ -985,8 +928,8 @@ describe('MarketAdapter', function () {
         })
 
         /// check beneficiary is owner of the NFT
-        const itemOwner = await this.erc721RegistryMock.ownerOf(tokenId);
-        itemOwner.should.be.eq(someone);
+        const itemOwner = await this.erc721RegistryMock.ownerOf(tokenId)
+        itemOwner.should.be.eq(someone)
       })
 
       it('reverts using a non supported enum type (invalid opcode)', async function () {
@@ -998,7 +941,7 @@ describe('MarketAdapter', function () {
           .encodeABI()
 
         await expectRevert(
-          this.marketAdapter.methods[
+          this.buyAdapter.methods[
             'buy(address,uint256,address,bytes,uint256,uint8,address)'
           ](
             this.erc721RegistryMock.address,
@@ -1011,7 +954,7 @@ describe('MarketAdapter', function () {
             {
               value: this.totalOrderValue,
               from: someone,
-              gasPrice: 0
+              gasPrice: 0,
             }
           ),
           'invalid opcode'
@@ -1027,7 +970,7 @@ describe('MarketAdapter', function () {
           .encodeABI()
 
         await expectRevert(
-          this.marketAdapter.methods[
+          this.buyAdapter.methods[
             'buy(address,uint256,address,bytes,uint256,uint8,address)'
           ](
             this.erc721RegistryMock.address,
@@ -1036,13 +979,13 @@ describe('MarketAdapter', function () {
             encodedCallData,
             this.orderValue,
             10, // non supported
-            this.marketAdapter.address, // invalid beneficiary
+            this.buyAdapter.address, // invalid beneficiary
             {
               value: this.totalOrderValue,
               from: someone,
             }
           ),
-          'MarketAdapter: invalid beneficiary'
+          'BuyAdapter: invalid beneficiary'
         )
       })
     })
