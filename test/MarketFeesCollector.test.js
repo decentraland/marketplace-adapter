@@ -39,7 +39,8 @@ describe('MarketFeesCollector', function () {
     )
 
     this.uniswapV2Converter = await UniswapV2Converter.new(
-      this.uniswapRouterMock.address, { from: owner }
+      this.uniswapRouterMock.address,
+      { from: owner }
     )
 
     // Fees collector using a non ERC20 burnable() interface as reserve token
@@ -57,7 +58,7 @@ describe('MarketFeesCollector', function () {
       constants.ZERO_ADDRESS,
       this.reserveBurnableToken.address,
       {
-        from: owner
+        from: owner,
       }
     )
 
@@ -69,7 +70,8 @@ describe('MarketFeesCollector', function () {
   describe('FeesConverter admin', function () {
     it('emits FeesConverter on succesful set', async function () {
       const receipt = await this.configuredFeesCollector.setConverter(
-        someConverter, { from: owner }
+        someConverter,
+        { from: owner }
       )
 
       expectEvent(receipt, 'SetConverter', {
@@ -79,7 +81,9 @@ describe('MarketFeesCollector', function () {
 
     it('reverts when setting FeesConverter from non owner account', async function () {
       await expectRevert(
-        this.configuredFeesCollector.setConverter(someConverter, { from: someone }),
+        this.configuredFeesCollector.setConverter(someConverter, {
+          from: someone,
+        }),
         'Ownable: caller is not the owner'
       )
     })
@@ -90,30 +94,29 @@ describe('MarketFeesCollector', function () {
       context.burningBalance = `${1e18}`
 
       // setConverter() to kyber
-      await context.feesCollector.setConverter(
-        converter.address, { from: owner }
-      )
-      await context.alternativeFeesCollector.setConverter(
-        converter.address, { from: owner }
-      )
+      await context.feesCollector.setConverter(converter.address, {
+        from: owner,
+      })
+      await context.alternativeFeesCollector.setConverter(converter.address, {
+        from: owner,
+      })
     }
 
     const testForSuccess = async function (context, reserveToken, proxyMock) {
-
       // send() some ether balance to burn
-      await context.configuredFeesCollector.send(
-        context.burningBalance
-      )
+      await context.configuredFeesCollector.send(context.burningBalance)
 
       // get Total Tokens needed for order + fees
       const totalTokensNeeded = await proxyMock.calcTokensPerEther(
-        context.burningBalance,
-      );
+        context.burningBalance
+      )
 
       // mint() totalTokensNeeded to KyberProxyMock
       reserveToken.mint(proxyMock.address, totalTokensNeeded)
 
-      const tracker = await balance.tracker(context.configuredFeesCollector.address)
+      const tracker = await balance.tracker(
+        context.configuredFeesCollector.address
+      )
       const preBalance = await tracker.get()
 
       const receipt = await context.configuredFeesCollector.burnCollectedFees({
@@ -123,7 +126,7 @@ describe('MarketFeesCollector', function () {
       expectEvent(receipt, 'CollectedFeesBurned', {
         callingAddr: someone,
         etherBalance: context.burningBalance,
-        burnedTokens: totalTokensNeeded
+        burnedTokens: totalTokensNeeded,
       })
 
       /// Post balance check
@@ -144,9 +147,11 @@ describe('MarketFeesCollector', function () {
       )
     })
 
-    it('reverts if can\'t convert eth > tokens', async function () {
+    it("reverts if can't convert eth > tokens", async function () {
       await this.configuredFeesCollector.setConverter(
-        this.converterMock.address, { from: owner })
+        this.converterMock.address,
+        { from: owner }
+      )
 
       await expectRevert(
         this.configuredFeesCollector.burnCollectedFees({
@@ -157,7 +162,6 @@ describe('MarketFeesCollector', function () {
     })
 
     describe('Using Kyber', function () {
-
       before(async function () {
         await prepareConverter(this, this.kyberConverter)
       })
@@ -167,9 +171,8 @@ describe('MarketFeesCollector', function () {
       })
 
       describe('Using burn() in the reserveToken', function () {
-
         before(async function () {
-          this.configuredFeesCollector = this.alternativeFeesCollector;
+          this.configuredFeesCollector = this.alternativeFeesCollector
         })
 
         it('emits CollectedFeesBurned on success', async function () {
@@ -181,15 +184,12 @@ describe('MarketFeesCollector', function () {
         })
 
         after(async function () {
-          this.configuredFeesCollector = this.feesCollector;
+          this.configuredFeesCollector = this.feesCollector
         })
-
       })
-
     })
 
     describe('Using UniswapV2', function () {
-
       before(async function () {
         await prepareConverter(this, this.uniswapV2Converter)
       })
@@ -203,9 +203,8 @@ describe('MarketFeesCollector', function () {
       })
 
       describe('Using burn() in the reserveToken', function () {
-
         before(async function () {
-          this.configuredFeesCollector = this.alternativeFeesCollector;
+          this.configuredFeesCollector = this.alternativeFeesCollector
         })
 
         it('emits CollectedFeesBurned on success', async function () {
@@ -217,16 +216,15 @@ describe('MarketFeesCollector', function () {
         })
 
         after(async function () {
-          this.configuredFeesCollector = this.feesCollector;
+          this.configuredFeesCollector = this.feesCollector
         })
-
       })
     })
   })
 
   describe('Testing receive() method', function () {
     it('checks pre-post balances on successful send', async function () {
-      const randomValue = new BN(`{1e18}`);
+      const randomValue = new BN(`{1e18}`)
 
       const tracker = await balance.tracker(this.feesCollector.address)
       const preBalance = await tracker.get()
@@ -235,10 +233,7 @@ describe('MarketFeesCollector', function () {
 
       const postBalance = await tracker.get()
 
-      postBalance.should.be.bignumber.eq(
-        preBalance.add(randomValue)
-      )
+      postBalance.should.be.bignumber.eq(preBalance.add(randomValue))
     })
   })
-
 })

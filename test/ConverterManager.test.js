@@ -10,7 +10,7 @@ const ConverterManager = contract.fromArtifact('ConverterManager')
 require('chai').should()
 
 describe('ConverterManager', function () {
-  const [owner, someone, someConverterAddress ] = accounts
+  const [owner, someone, someConverterAddress] = accounts
 
   before(async function () {
     // create a test ERC20 for the payments
@@ -19,25 +19,24 @@ describe('ConverterManager', function () {
 
   // Adapter fee changes
   describe('Admin', function () {
-
     it('emits SetConverter on succesful set', async function () {
       const receipt = await this.converterManager.setConverter(
-        someConverterAddress, { from: owner }
+        someConverterAddress,
+        { from: owner }
       )
 
       expectEvent(receipt, 'SetConverter', {
-        converter: someConverterAddress
+        converter: someConverterAddress,
       })
     })
 
     it('reverts when setting Converter from non owner account', async function () {
       await expectRevert(
-        this.converterManager.setConverter(
-          someConverterAddress, { from: someone }
-        ),
+        this.converterManager.setConverter(someConverterAddress, {
+          from: someone,
+        }),
         'Ownable: caller is not the owner'
       )
     })
-
   })
-});
+})
