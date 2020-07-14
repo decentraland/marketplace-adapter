@@ -445,36 +445,32 @@ describe('BuyAdapter', function () {
           })
         })
 
-        it('check fees are retained', async function () {
+        it('reverts if collector was not set', async function () {
           const tokenId = '4000'
-
-          const tracker = await balance.tracker(this.buyAdapter.address)
-          const preBalance = await tracker.get()
 
           // encode buy(_tokenId, _registry) for calling the marketplace mock
           const encodedCallData = this.marketplaceMock.contract.methods
             .buy(tokenId, this.erc721RegistryMock.address)
             .encodeABI()
 
-          await this.buyAdapter.methods[
-            'buy(address,uint256,address,bytes,uint256,uint8,address)'
-          ](
-            this.erc721RegistryMock.address,
-            tokenId,
-            this.marketplaceMock.address,
-            encodedCallData,
-            this.orderValue,
-            0, // safeTransferFrom
-            someone, // beneficiary
-            {
-              value: this.totalOrderValue,
-              from: someone,
-            }
+          await expectRevert(
+            this.buyAdapter.methods[
+              'buy(address,uint256,address,bytes,uint256,uint8,address)'
+            ](
+              this.erc721RegistryMock.address,
+              tokenId,
+              this.marketplaceMock.address,
+              encodedCallData,
+              this.orderValue,
+              0, // safeTransferFrom
+              someone, // beneficiary
+              {
+                value: this.totalOrderValue,
+                from: someone,
+              }
+            ),
+            'BuyAdapter: fees Collector must be set'
           )
-
-          const postBalance = await tracker.get()
-
-          postBalance.should.be.bignumber.eq(preBalance.add(this.orderFees))
         })
 
         it('check total fees accumulated are sent on next transaction', async function () {

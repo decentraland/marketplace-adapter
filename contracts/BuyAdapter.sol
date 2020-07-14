@@ -257,6 +257,7 @@ contract BuyAdapter is
         private
     {
         require(_orderAmount > 0, "BuyAdapter: invalid order value");
+        require(adapterFeesCollector != address(0), "BuyAdapter: fees Collector must be set");
 
         // Save contract balance before call to marketplace
         uint256 preCallBalance = address(this).balance;
@@ -282,12 +283,10 @@ contract BuyAdapter is
         );
 
         // Send balance to Collector. Reverts on failure
-        if (adapterFeesCollector != address(0) && address(this).balance > 0) {
-            require(
-                adapterFeesCollector.send(address(this).balance),
-                "BuyAdapter: error sending fees to collector"
-            );
-        }
+        require(
+            adapterFeesCollector.send(address(this).balance),
+            "BuyAdapter: error sending fees to collector"
+        );
 
         // Transfer tokenId to caller
         _transferItem(
