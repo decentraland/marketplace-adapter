@@ -144,6 +144,7 @@ describe('BuyAdapter', function () {
         '8000',
         '9000',
         '10000',
+        '20000',
       ]
 
       for (const tokenId of tokenArr) {
@@ -599,6 +600,11 @@ describe('BuyAdapter', function () {
         const adapterPreBalance = await adapterTracker.get()
         const collectorPreBalance = await collectorTracker.get()
 
+        let ownerOfTokenBought = await context.erc721RegistryMock.ownerOf(
+          tokenId
+        )
+        expect(ownerOfTokenBought).to.be.equal(context.marketplaceMock.address)
+
         const receipt = await context.buyAdapter.methods[
           'buy(address,uint256,address,bytes,uint256,address,uint256,uint8,address)'
         ](
@@ -642,9 +648,7 @@ describe('BuyAdapter', function () {
           collectorPreBalance.add(context.orderFees)
         )
 
-        const ownerOfTokenBought = await context.erc721RegistryMock.ownerOf(
-          tokenId
-        )
+        ownerOfTokenBought = await context.erc721RegistryMock.ownerOf(tokenId)
         expect(ownerOfTokenBought).to.be.equal(someone)
 
         expectEvent(receipt, 'ExecutedOrder', {
@@ -665,19 +669,7 @@ describe('BuyAdapter', function () {
         // Mint transaction sender ERC20 test tokens
         await context.reserveTokenMock.mint(someone, maxAllowedTokens)
 
-        // Clean and aprove BuyAdapter transfer orderValue in reserveToken
-        try {
-          await context.reserveTokenMock.approve(
-            context.buyAdapter.address,
-            0,
-            {
-              from: someone,
-            }
-          )
-        } catch (_) {
-          // do nothing
-        }
-
+        // aprove BuyAdapter transfer orderValue in reserveToken
         await context.reserveTokenMock.approve(
           context.buyAdapter.address,
           maxAllowedTokens,
@@ -708,6 +700,11 @@ describe('BuyAdapter', function () {
         const ownerPreBalance = await ownerTracker.get()
         const adapterPreBalance = await adapterTracker.get()
         const collectorPreBalance = await collectorTracker.get()
+
+        let ownerOfTokenBought = await context.erc721RegistryMock.ownerOf(
+          tokenId
+        )
+        expect(ownerOfTokenBought).to.be.equal(context.marketplaceMock.address)
 
         const receipt = await context.buyAdapter.methods[
           'buy(address,bytes,uint256,address,uint256)'
@@ -748,9 +745,7 @@ describe('BuyAdapter', function () {
           collectorPreBalance.add(context.orderFees)
         )
 
-        const ownerOfTokenBought = await context.erc721RegistryMock.ownerOf(
-          tokenId
-        )
+        ownerOfTokenBought = await context.erc721RegistryMock.ownerOf(tokenId)
         expect(ownerOfTokenBought).to.be.equal(anotherSomeone)
 
         expectEvent(receipt, 'ExecutedOrder', {
@@ -872,6 +867,15 @@ describe('BuyAdapter', function () {
         })
 
         it('reverts (safeTransferFrom) if token balance < tokens needed', async function () {
+          // burn current Balance tokens
+          await this.reserveTokenMock.transfer(
+            constants.ZERO_ADDRESS,
+            await this.reserveTokenMock.balanceOf(someone),
+            {
+              from: someone,
+            }
+          )
+
           const tokensMinted = this.orderValue.div(new BN(100))
 
           // Mint transaction sender ERC20 test tokens
@@ -890,7 +894,7 @@ describe('BuyAdapter', function () {
             this,
             '8000',
             this.maxTokensAllowed,
-            undefined
+            'ERC20: transfer amount exceeds balance'
           )
 
           // burn test tokens
@@ -905,7 +909,7 @@ describe('BuyAdapter', function () {
       })
 
       describe('Using Uniswap', function () {
-        before(async function () {
+        beforeEach(async function () {
           this.converter = await UniswapV2Converter.new(
             this.uniswapProxy.address,
             { from: owner }
@@ -939,7 +943,25 @@ describe('BuyAdapter', function () {
           )
         })
 
+        it('emits ExecutedOrder with onERC721Received callback (exact tokens amount):: UnsafeBuy', async function () {
+          await testPositiveTokenIdUnsafeBuy(
+            this,
+            '20000',
+            this.totalTokensNeeded,
+            this.maxTokensAllowed
+          )
+        })
+
         it('reverts (safeTransferFrom) if token balance < tokens needed', async function () {
+          // burn current Balance tokens
+          await this.reserveTokenMock.transfer(
+            constants.ZERO_ADDRESS,
+            await this.reserveTokenMock.balanceOf(someone),
+            {
+              from: someone,
+            }
+          )
+
           const tokensMinted = this.orderValue.div(new BN(100))
 
           // Mint transaction sender ERC20 test tokens
@@ -958,7 +980,7 @@ describe('BuyAdapter', function () {
             this,
             '9000',
             this.maxTokensAllowed,
-            undefined
+            'ERC20: transfer amount exceeds balance'
           )
 
           // burn test tokens
