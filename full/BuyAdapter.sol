@@ -1,7 +1,7 @@
+// SPDX-License-Identifier: MIT
 
 // File: @openzeppelin/contracts/math/SafeMath.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.0;
 
@@ -163,7 +163,6 @@ library SafeMath {
 
 // File: @openzeppelin/contracts/GSN/Context.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.0;
 
@@ -190,7 +189,6 @@ abstract contract Context {
 
 // File: @openzeppelin/contracts/access/Ownable.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.0;
 
@@ -260,7 +258,6 @@ contract Ownable is Context {
 
 // File: @openzeppelin/contracts/utils/ReentrancyGuard.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.0;
 
@@ -325,7 +322,6 @@ contract ReentrancyGuard {
 
 // File: @openzeppelin/contracts/token/ERC20/IERC20.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.0;
 
@@ -405,7 +401,6 @@ interface IERC20 {
 
 // File: @openzeppelin/contracts/utils/Address.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.2;
 
@@ -549,7 +544,6 @@ library Address {
 
 // File: @openzeppelin/contracts/token/ERC20/SafeERC20.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.0;
 
@@ -626,7 +620,6 @@ library SafeERC20 {
 
 // File: @openzeppelin/contracts/token/ERC721/IERC721Receiver.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.0;
 
@@ -651,7 +644,6 @@ interface IERC721Receiver {
 
 // File: contracts/ERC721Holder.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.8;
 
@@ -690,7 +682,6 @@ contract ERC721Holder is IERC721Receiver {
 
 // File: contracts/ConverterManager.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.8;
 
@@ -714,7 +705,6 @@ contract ConverterManager is Ownable {
 
 // File: @openzeppelin/contracts/introspection/IERC165.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.0;
 
@@ -741,7 +731,6 @@ interface IERC165 {
 
 // File: @openzeppelin/contracts/token/ERC721/IERC721.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.2;
 
@@ -872,7 +861,6 @@ interface IERC721 is IERC165 {
 
 // File: contracts/ITransferableRegistry.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.8;
 
@@ -883,7 +871,6 @@ interface ITransferableRegistry is IERC721 {
 
 // File: contracts/dex/IConverter.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.8;
 
@@ -899,7 +886,6 @@ interface IConverter {
 
 // File: contracts/BuyAdapter.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.8;
 
