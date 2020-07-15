@@ -824,7 +824,7 @@ describe('BuyAdapter', function () {
           )
         })
 
-        it('emits ExecutedOrder with onERC721Received callback (exact tokens amount):: UnsafeBuy', async function () {
+        it('emits ExecutedOrder with onERC721Received callback (exact tokens amount):: unsafeBuy', async function () {
           await testPositiveTokenIdUnsafeBuy(
             this,
             '10000',
@@ -934,7 +934,7 @@ describe('BuyAdapter', function () {
           await this.uniswapProxy.send(this.totalOrderValue)
         })
 
-        it('emits ExecutedOrder with onERC721Received callback', async function () {
+        it('emits ExecutedOrder with onERC721Received callback:: buy', async function () {
           await testPositiveTokenIdBuy(
             this,
             '8000',
@@ -943,7 +943,7 @@ describe('BuyAdapter', function () {
           )
         })
 
-        it('emits ExecutedOrder with onERC721Received callback (exact tokens amount):: UnsafeBuy', async function () {
+        it('emits ExecutedOrder with onERC721Received callback (exact tokens amount):: unsafeBuy', async function () {
           await testPositiveTokenIdUnsafeBuy(
             this,
             '20000',

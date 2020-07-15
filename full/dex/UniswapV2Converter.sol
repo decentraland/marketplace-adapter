@@ -3,6 +3,7 @@
 
 // SPDX-License-Identifier: MIT
 
+
 pragma solidity ^0.6.0;
 
 /**
@@ -81,7 +82,6 @@ interface IERC20 {
 
 // File: contracts/dex/IConverter.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.8;
 
@@ -97,7 +97,6 @@ interface IConverter {
 
 // File: contracts/dex/IUniswapV2Router02.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.8;
 
@@ -134,7 +133,6 @@ interface IUniswapV2Router02 {
 
 // File: @openzeppelin/contracts/math/SafeMath.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.0;
 
@@ -296,7 +294,6 @@ library SafeMath {
 
 // File: @openzeppelin/contracts/utils/Address.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.2;
 
@@ -440,7 +437,6 @@ library Address {
 
 // File: @openzeppelin/contracts/token/ERC20/SafeERC20.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.0;
 
@@ -517,7 +513,6 @@ library SafeERC20 {
 
 // File: contracts/dex/UniswapV2Converter.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.8;
 
