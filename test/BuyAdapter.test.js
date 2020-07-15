@@ -26,7 +26,7 @@ const NonReceiverMock = contract.fromArtifact('NonReceiverMock')
 require('chai').should()
 
 describe('BuyAdapter', function () {
-  const [owner, someone, anotherSomeone, unsafeBeneficiary] = accounts
+  const [owner, someone, anotherSomeone] = accounts
 
   before(async function () {
     this.timeout(Infinity)
@@ -678,7 +678,7 @@ describe('BuyAdapter', function () {
           }
         )
 
-        // encode buy(_tokenId, _registry, _beneficiary) for calling the marketplace mock
+        // encode buyWithBeneficiary(_tokenId, _registry, _beneficiary) for calling the marketplace mock
         const encodedCallData = context.marketplaceMock.contract.methods
           .buyWithBeneficiary(
             tokenId,
