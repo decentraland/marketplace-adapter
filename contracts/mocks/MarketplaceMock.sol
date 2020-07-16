@@ -63,6 +63,14 @@ contract MarketplaceMock {
         );
     }
 
+    function buyWithBeneficiary(uint256 _tokenId, address _registry, address _beneficiry) public payable {
+        _checkOwnership(_tokenId, _registry);
+
+        ERC721Mock(_registry).safeTransferFrom(
+            address(this), _beneficiry, _tokenId
+        );
+    }
+
     // this buy method wont call ERC721Reveived callback
     function buyWithoutERC721Reveived(uint256 _tokenId, address _registry) public payable {
         _checkOwnership(_tokenId, _registry);

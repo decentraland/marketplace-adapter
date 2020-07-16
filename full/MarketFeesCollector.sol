@@ -3,6 +3,7 @@
 
 // SPDX-License-Identifier: MIT
 
+
 pragma solidity ^0.6.0;
 
 /**
@@ -81,7 +82,6 @@ interface IERC20 {
 
 // File: contracts/dex/IConverter.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.8;
 
@@ -97,7 +97,6 @@ interface IConverter {
 
 // File: @openzeppelin/contracts/GSN/Context.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.0;
 
@@ -124,7 +123,6 @@ abstract contract Context {
 
 // File: @openzeppelin/contracts/access/Ownable.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.0;
 
@@ -194,7 +192,6 @@ contract Ownable is Context {
 
 // File: contracts/ConverterManager.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.8;
 
@@ -218,7 +215,6 @@ contract ConverterManager is Ownable {
 
 // File: @openzeppelin/contracts/math/SafeMath.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.0;
 
@@ -380,7 +376,6 @@ library SafeMath {
 
 // File: @openzeppelin/contracts/utils/Address.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.2;
 
@@ -524,7 +519,6 @@ library Address {
 
 // File: @openzeppelin/contracts/token/ERC20/SafeERC20.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.0;
 
@@ -601,7 +595,6 @@ library SafeERC20 {
 
 // File: @openzeppelin/contracts/token/ERC20/ERC20.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.0;
 
@@ -910,7 +903,6 @@ contract ERC20 is Context, IERC20 {
 
 // File: @openzeppelin/contracts/token/ERC20/ERC20Burnable.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.0;
 
@@ -952,7 +944,6 @@ abstract contract ERC20Burnable is Context, ERC20 {
 
 // File: contracts/MarketFeesCollector.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.8;
 

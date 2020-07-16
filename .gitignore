@@ -3,6 +3,8 @@ node_modules
 
 # Truffle artifacts
 build
+artifacts
+cache
 
 # OpenZeppelin SDK
 .openzeppelin/dev-*.json

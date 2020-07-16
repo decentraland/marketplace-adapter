@@ -3,6 +3,7 @@
 
 // SPDX-License-Identifier: MIT
 
+
 pragma solidity ^0.6.0;
 
 /**
@@ -163,7 +164,6 @@ library SafeMath {
 
 // File: @openzeppelin/contracts/GSN/Context.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.0;
 
@@ -190,7 +190,6 @@ abstract contract Context {
 
 // File: @openzeppelin/contracts/access/Ownable.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.0;
 
@@ -260,7 +259,6 @@ contract Ownable is Context {
 
 // File: @openzeppelin/contracts/utils/ReentrancyGuard.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.0;
 
@@ -325,7 +323,6 @@ contract ReentrancyGuard {
 
 // File: @openzeppelin/contracts/token/ERC20/IERC20.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.0;
 
@@ -405,7 +402,6 @@ interface IERC20 {
 
 // File: @openzeppelin/contracts/utils/Address.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.2;
 
@@ -549,7 +545,6 @@ library Address {
 
 // File: @openzeppelin/contracts/token/ERC20/SafeERC20.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.0;
 
@@ -626,7 +621,6 @@ library SafeERC20 {
 
 // File: @openzeppelin/contracts/token/ERC721/IERC721Receiver.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.0;
 
@@ -651,7 +645,6 @@ interface IERC721Receiver {
 
 // File: contracts/ERC721Holder.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.8;
 
@@ -690,7 +683,6 @@ contract ERC721Holder is IERC721Receiver {
 
 // File: contracts/ConverterManager.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.8;
 
@@ -714,7 +706,6 @@ contract ConverterManager is Ownable {
 
 // File: @openzeppelin/contracts/introspection/IERC165.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.0;
 
@@ -741,7 +732,6 @@ interface IERC165 {
 
 // File: @openzeppelin/contracts/token/ERC721/IERC721.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.2;
 
@@ -872,7 +862,6 @@ interface IERC721 is IERC165 {
 
 // File: contracts/ITransferableRegistry.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.8;
 
@@ -883,7 +872,6 @@ interface ITransferableRegistry is IERC721 {
 
 // File: contracts/dex/IConverter.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.8;
 
@@ -899,7 +887,6 @@ interface IConverter {
 
 // File: contracts/BuyAdapter.sol
 
-// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.8;
 
@@ -927,6 +914,13 @@ contract BuyAdapter is
         address indexed marketplace,
         uint256 orderValue,
         uint256 orderFees
+    );
+
+    event ExecutedOrder(
+        address indexed marketplace,
+        uint256 orderValue,
+        uint256 orderFees,
+        bytes marketplaceData
     );
 
     event MarketplaceAllowance(address indexed marketplace, bool value);
@@ -1012,6 +1006,7 @@ contract BuyAdapter is
      * @param _encodedCallData forwarded to _marketplace.
      * @param _orderAmount (excluding fees) in ethers for the markeplace order
      * @param _paymentToken ERC20 address of the token used to pay
+     * @param _maxPaymentTokenAmount max ERC20 token to use. Prevent high splippage.
      * @param _transferType choice for calling the ERC721 registry
      * @param _beneficiary where to send the ERC721 token
      */
@@ -1131,6 +1126,114 @@ contract BuyAdapter is
     }
 
     /**
+     * @dev Relays buy marketplace order taking the configured fees
+     *  from message value.
+     *  Notice that this method won't check what was bought. The calldata must have
+     *  the desire beneficiry.
+     * @param _marketplace marketplace listing the asset.
+     * @param _encodedCallData forwarded to the _marketplace.
+     * @param _orderAmount (excluding fees) in ethers for the markeplace order
+     */
+    function buy(
+        address _marketplace,
+        bytes memory _encodedCallData,
+        uint256 _orderAmount
+    )
+        public payable nonReentrant
+    {
+        // Calc total needed for this order + adapter fees
+        uint256 orderFees = _calcOrderFees(_orderAmount);
+        uint256 totalOrderAmount = _orderAmount.add(orderFees);
+
+        // Check the order + fees
+        require(
+            msg.value == totalOrderAmount,
+            "BuyAdapter: invalid msg.value != (order + fees)"
+        );
+
+        _buy(
+            _marketplace,
+            _encodedCallData,
+            _orderAmount,
+            orderFees
+        );
+    }
+
+    /**
+     * @dev Relays buy marketplace order. Uses the IConverter to
+     *  swap erc20 tokens to ethers and call _buy() with the exact ether amount.
+     *  Notice that this method won't check what was bought. The calldata must have
+     *  the desire beneficiry.
+     * @param _marketplace marketplace listing the asset.
+     * @param _encodedCallData forwarded to _marketplace.
+     * @param _orderAmount (excluding fees) in ethers for the markeplace order
+     * @param _paymentToken ERC20 address of the token used to pay
+     * @param _maxPaymentTokenAmount max ERC20 token to use. Prevent high splippage.
+     */
+    function buy(
+        address _marketplace,
+        bytes memory _encodedCallData,
+        uint256 _orderAmount,
+        IERC20 _paymentToken,
+        uint256 _maxPaymentTokenAmount
+    )
+        public nonReentrant
+    {
+        IConverter converter = IConverter(converterAddress);
+
+        // Calc total needed for this order + adapter fees
+        uint256 orderFees = _calcOrderFees(_orderAmount);
+        uint256 totalOrderAmount = _orderAmount.add(orderFees);
+
+        // Get amount of srcTokens needed for the exchange
+        uint256 paymentTokenAmount = converter.calcNeededTokensForEther(
+            _paymentToken,
+            totalOrderAmount
+        );
+
+        require(
+            paymentTokenAmount > 0,
+            "BuyAdapter: paymentTokenAmount invalid"
+        );
+
+        require(
+            paymentTokenAmount <= _maxPaymentTokenAmount,
+            "BuyAdapter: paymentTokenAmount > _maxPaymentTokenAmount"
+        );
+
+        // Get Tokens from sender
+        _paymentToken.safeTransferFrom(
+            msg.sender, address(this), paymentTokenAmount
+        );
+
+        // allow converter for this paymentTokenAmount transfer
+        _paymentToken.safeApprove(converterAddress, paymentTokenAmount);
+
+        // Get ethers from converter
+        (uint256 convertedEth, uint256 remainderTokenAmount) = converter.swapTokenToEther(
+            _paymentToken,
+            paymentTokenAmount,
+            totalOrderAmount
+        );
+
+        require(
+            convertedEth == totalOrderAmount,
+            "BuyAdapter: invalid ether amount after conversion"
+        );
+
+        if (remainderTokenAmount > 0) {
+            _paymentToken.safeTransfer(msg.sender, remainderTokenAmount);
+        }
+
+        _buy(
+            _marketplace,
+            _encodedCallData,
+            _orderAmount,
+            orderFees
+        );
+    }
+
+    /**
      * @dev Internal call relays the order to a _marketplace.
      * @param _registry NFT registry address
      * @param _tokenId listed asset Id.
@@ -1200,6 +1303,59 @@ contract BuyAdapter is
             _marketplace,
             _orderAmount,
             _feesAmount
+        );
+    }
+
+    /**
+     * @dev Internal call relays the order to a _marketplace.
+     *  Notice that this method won't check what was bought. The calldata must have
+     *  the desire beneficiry.
+     * @param _marketplace marketplace listing the asset.
+     * @param _encodedCallData forwarded to _marketplace.
+     * @param _orderAmount (excluding fees) in ethers for the markeplace order
+     * @param _feesAmount in ethers for the order
+     */
+    function _buy(
+        address _marketplace,
+        bytes memory _encodedCallData,
+        uint256 _orderAmount,
+        uint256 _feesAmount
+    )
+        private
+    {
+        require(_orderAmount > 0, "BuyAdapter: invalid order value");
+        require(adapterFeesCollector != address(0), "BuyAdapter: fees Collector must be set");
+
+        // Save contract balance before call to marketplace
+        uint256 preCallBalance = address(this).balance;
+
+        // execute buy order in destination marketplace
+        (bool success, ) = _marketplace.call{ value: _orderAmount }(
+            _encodedCallData
+        );
+
+        require(
+            success,
+            "BuyAdapter: marketplace failed to execute buy order"
+        );
+
+        require(
+            address(this).balance == preCallBalance.sub(_orderAmount),
+            "BuyAdapter: postcall balance mismatch"
+        );
+
+        // Send balance to Collector. Reverts on failure
+        require(
+            adapterFeesCollector.send(address(this).balance),
+            "BuyAdapter: error sending fees to collector"
+        );
+
+        // Log succesful executed order
+        emit ExecutedOrder(
+            _marketplace,
+            _orderAmount,
+            _feesAmount,
+            _encodedCallData
         );
     }
 

@@ -7,6 +7,7 @@ const {
   expectEvent, // Assertions for emitted events
   expectRevert, // Assertions for transactions that should fail
 } = require('@openzeppelin/test-helpers')
+const { expect } = require('chai')
 
 const BuyAdapter = contract.fromArtifact('BuyAdapter')
 const KyberConverter = contract.fromArtifact('KyberConverter')
@@ -25,7 +26,7 @@ const NonReceiverMock = contract.fromArtifact('NonReceiverMock')
 require('chai').should()
 
 describe('BuyAdapter', function () {
-  const [owner, someone] = accounts
+  const [owner, someone, anotherSomeone] = accounts
 
   before(async function () {
     this.timeout(Infinity)
@@ -142,6 +143,8 @@ describe('BuyAdapter', function () {
         '7000',
         '8000',
         '9000',
+        '10000',
+        '20000',
       ]
 
       for (const tokenId of tokenArr) {
@@ -324,6 +327,38 @@ describe('BuyAdapter', function () {
         postBalance.should.be.bignumber.eq(preBalance.sub(this.totalOrderValue))
       })
 
+      it('unsafeBuy', async function () {
+        const tokenId = '5000'
+
+        // encode buyWithoutERC721Reveived(_tokenId, _registry) for calling the marketplace mock
+        const encodedCallData = this.marketplaceMock.contract.methods
+          .buyWithoutERC721Reveived(tokenId, this.erc721RegistryMock.address)
+          .encodeABI()
+
+        const tracker = await balance.tracker(someone)
+        const preBalance = await tracker.get()
+
+        const receipt = await this.buyAdapter.methods[
+          'buy(address,bytes,uint256)'
+        ](this.marketplaceMock.address, encodedCallData, this.orderValue, {
+          value: this.totalOrderValue,
+          from: someone,
+          gasPrice: 0,
+        })
+
+        expectEvent(receipt, 'ExecutedOrder', {
+          marketplace: this.marketplaceMock.address,
+          orderValue: this.orderValue,
+          orderFees: this.orderFees,
+          marketplaceData: encodedCallData,
+        })
+
+        /// Post balance check
+        const postBalance = await tracker.get()
+
+        postBalance.should.be.bignumber.eq(preBalance.sub(this.totalOrderValue))
+      })
+
       // Reverts
       it('reverts if marketplace failed to execute the order', async function () {
         const tokenId = '4000'
@@ -472,41 +507,6 @@ describe('BuyAdapter', function () {
             'BuyAdapter: fees Collector must be set'
           )
         })
-
-        it('check total fees accumulated are sent on next transaction', async function () {
-          // restore fees collector
-          await this.buyAdapter.setFeesCollector(
-            this.marketFeesCollector.address,
-            { from: owner }
-          )
-
-          const tokenId = '5000'
-          const tracker = await balance.tracker(this.buyAdapter.address)
-
-          // encode buy(_tokenId, _registry) for calling the marketplace mock
-          const encodedCallData = this.marketplaceMock.contract.methods
-            .buy(tokenId, this.erc721RegistryMock.address)
-            .encodeABI()
-
-          await this.buyAdapter.methods[
-            'buy(address,uint256,address,bytes,uint256,uint8,address)'
-          ](
-            this.erc721RegistryMock.address,
-            tokenId,
-            this.marketplaceMock.address,
-            encodedCallData,
-            this.orderValue,
-            0, // safeTransferFrom
-            someone, // beneficiary
-            {
-              value: this.totalOrderValue,
-              from: someone,
-            }
-          )
-
-          const postBalance = await tracker.get()
-          postBalance.should.be.bignumber.eq('0')
-        })
       })
 
       describe('With wrong FeesCollector', function () {
@@ -600,6 +600,11 @@ describe('BuyAdapter', function () {
         const adapterPreBalance = await adapterTracker.get()
         const collectorPreBalance = await collectorTracker.get()
 
+        let ownerOfTokenBought = await context.erc721RegistryMock.ownerOf(
+          tokenId
+        )
+        expect(ownerOfTokenBought).to.be.equal(context.marketplaceMock.address)
+
         const receipt = await context.buyAdapter.methods[
           'buy(address,uint256,address,bytes,uint256,address,uint256,uint8,address)'
         ](
@@ -643,12 +648,111 @@ describe('BuyAdapter', function () {
           collectorPreBalance.add(context.orderFees)
         )
 
+        ownerOfTokenBought = await context.erc721RegistryMock.ownerOf(tokenId)
+        expect(ownerOfTokenBought).to.be.equal(someone)
+
         expectEvent(receipt, 'ExecutedOrder', {
           registry: context.erc721RegistryMock.address,
           tokenId: tokenId,
           marketplace: context.marketplaceMock.address,
           orderValue: context.orderValue,
           orderFees: context.orderFees,
+        })
+      }
+
+      const testPositiveTokenIdUnsafeBuy = async function (
+        context,
+        tokenId,
+        totalTokensNeeded,
+        maxAllowedTokens
+      ) {
+        // Mint transaction sender ERC20 test tokens
+        await context.reserveTokenMock.mint(someone, maxAllowedTokens)
+
+        // aprove BuyAdapter transfer orderValue in reserveToken
+        await context.reserveTokenMock.approve(
+          context.buyAdapter.address,
+          maxAllowedTokens,
+          {
+            from: someone,
+          }
+        )
+
+        // encode buyWithBeneficiary(_tokenId, _registry, _beneficiary) for calling the marketplace mock
+        const encodedCallData = context.marketplaceMock.contract.methods
+          .buyWithBeneficiary(
+            tokenId,
+            context.erc721RegistryMock.address,
+            anotherSomeone
+          )
+          .encodeABI()
+
+        // Balance trackers
+        const ownerTracker = await balance.tracker(
+          context.marketplaceMock.address
+        )
+        const adapterTracker = await balance.tracker(context.buyAdapter.address)
+        const collectorTracker = await balance.tracker(
+          context.marketFeesCollector.address
+        )
+
+        const userPreBalance = await context.reserveTokenMock.balanceOf(someone)
+        const ownerPreBalance = await ownerTracker.get()
+        const adapterPreBalance = await adapterTracker.get()
+        const collectorPreBalance = await collectorTracker.get()
+
+        let ownerOfTokenBought = await context.erc721RegistryMock.ownerOf(
+          tokenId
+        )
+        expect(ownerOfTokenBought).to.be.equal(context.marketplaceMock.address)
+
+        const receipt = await context.buyAdapter.methods[
+          'buy(address,bytes,uint256,address,uint256)'
+        ](
+          context.marketplaceMock.address,
+          encodedCallData,
+          context.orderValue, // orderAmount
+          context.reserveTokenMock.address, // paymentToken
+          maxAllowedTokens,
+          {
+            from: someone,
+          }
+        )
+
+        /// Post balance checks
+        const userPostBalance = await context.reserveTokenMock.balanceOf(
+          someone
+        )
+        const ownerPostBalance = await ownerTracker.get()
+        const adapterPostBalance = await adapterTracker.get()
+        const collectorPostBalance = await collectorTracker.get()
+
+        // Check on user balance
+        userPostBalance.should.be.bignumber.eq(
+          userPreBalance.sub(totalTokensNeeded)
+        )
+
+        // Check owner has received the correct order amount
+        ownerPostBalance.should.be.bignumber.eq(
+          ownerPreBalance.add(context.orderValue)
+        )
+
+        // Check adapter balance = previous to order
+        adapterPostBalance.should.be.bignumber.eq(adapterPreBalance)
+
+        // Check on fees collector balance
+        collectorPostBalance.should.be.bignumber.eq(
+          collectorPreBalance.add(context.orderFees)
+        )
+
+        ownerOfTokenBought = await context.erc721RegistryMock.ownerOf(tokenId)
+        expect(ownerOfTokenBought).to.be.equal(anotherSomeone)
+
+        expectEvent(receipt, 'ExecutedOrder', {
+          marketplace: context.marketplaceMock.address,
+          orderValue: context.orderValue,
+          orderFees: context.orderFees,
+          marketplaceData: encodedCallData,
         })
       }
 
@@ -688,7 +792,7 @@ describe('BuyAdapter', function () {
       }
 
       describe('Using Kyber', function () {
-        before(async function () {
+        beforeEach(async function () {
           this.converter = await KyberConverter.new(this.kyberProxy.address, {
             from: owner,
           })
@@ -711,10 +815,19 @@ describe('BuyAdapter', function () {
           await this.kyberProxy.send(this.totalOrderValue)
         })
 
-        it('emits ExecutedOrder with onERC721Received callback (exact tokens amount)', async function () {
+        it('emits ExecutedOrder with onERC721Received callback (exact tokens amount):: buy', async function () {
           await testPositiveTokenIdBuy(
             this,
             '7000',
+            this.totalTokensNeeded,
+            this.maxTokensAllowed
+          )
+        })
+
+        it('emits ExecutedOrder with onERC721Received callback (exact tokens amount):: unsafeBuy', async function () {
+          await testPositiveTokenIdUnsafeBuy(
+            this,
+            '10000',
             this.totalTokensNeeded,
             this.maxTokensAllowed
           )
@@ -754,6 +867,15 @@ describe('BuyAdapter', function () {
         })
 
         it('reverts (safeTransferFrom) if token balance < tokens needed', async function () {
+          // burn current Balance tokens
+          await this.reserveTokenMock.transfer(
+            constants.ZERO_ADDRESS,
+            await this.reserveTokenMock.balanceOf(someone),
+            {
+              from: someone,
+            }
+          )
+
           const tokensMinted = this.orderValue.div(new BN(100))
 
           // Mint transaction sender ERC20 test tokens
@@ -772,7 +894,7 @@ describe('BuyAdapter', function () {
             this,
             '8000',
             this.maxTokensAllowed,
-            undefined
+            'ERC20: transfer amount exceeds balance'
           )
 
           // burn test tokens
@@ -787,7 +909,7 @@ describe('BuyAdapter', function () {
       })
 
       describe('Using Uniswap', function () {
-        before(async function () {
+        beforeEach(async function () {
           this.converter = await UniswapV2Converter.new(
             this.uniswapProxy.address,
             { from: owner }
@@ -812,7 +934,7 @@ describe('BuyAdapter', function () {
           await this.uniswapProxy.send(this.totalOrderValue)
         })
 
-        it('emits ExecutedOrder with onERC721Received callback', async function () {
+        it('emits ExecutedOrder with onERC721Received callback:: buy', async function () {
           await testPositiveTokenIdBuy(
             this,
             '8000',
@@ -821,7 +943,25 @@ describe('BuyAdapter', function () {
           )
         })
 
+        it('emits ExecutedOrder with onERC721Received callback (exact tokens amount):: unsafeBuy', async function () {
+          await testPositiveTokenIdUnsafeBuy(
+            this,
+            '20000',
+            this.totalTokensNeeded,
+            this.maxTokensAllowed
+          )
+        })
+
         it('reverts (safeTransferFrom) if token balance < tokens needed', async function () {
+          // burn current Balance tokens
+          await this.reserveTokenMock.transfer(
+            constants.ZERO_ADDRESS,
+            await this.reserveTokenMock.balanceOf(someone),
+            {
+              from: someone,
+            }
+          )
+
           const tokensMinted = this.orderValue.div(new BN(100))
 
           // Mint transaction sender ERC20 test tokens
@@ -840,7 +980,7 @@ describe('BuyAdapter', function () {
             this,
             '9000',
             this.maxTokensAllowed,
-            undefined
+            'ERC20: transfer amount exceeds balance'
           )
 
           // burn test tokens

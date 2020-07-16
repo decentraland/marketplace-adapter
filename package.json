@@ -13,9 +13,9 @@
     "@babel/register": "^7.10.4",
     "@openzeppelin/cli": "^2.8.2",
     "@openzeppelin/contracts": "^3.1.0",
-    "@openzeppelin/test-environment": "^0.1.4",
     "@openzeppelin/test-helpers": "^0.5.5",
     "@truffle/hdwallet-provider": "^1.0.37",
+    "@web3-js/scrypt-shim": "^0.1.0",
     "babel-eslint": "^10.1.0",
     "chai": "^4.2.0",
     "dotenv": "^8.2.0",
@@ -24,7 +24,8 @@
     "husky": "^4.2.5",
     "mocha": "^7.2.0",
     "prettier": "^2.0.5",
-    "solidity-coverage": "^0.7.9"
+    "solidity-coverage": "^0.7.9",
+    "web3": "^1.2.9"
   },
   "scripts": {
     "test": "oz compile && mocha --exit --recursive test",
@@ -43,6 +44,7 @@
   },
   "homepage": "https://github.com/decentraland/marketplace-adapter#readme",
   "dependencies": {
+    "@openzeppelin/test-environment": "^0.1.4",
     "ganache-core": "^2.10.2"
   }
 }
