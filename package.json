@@ -12,7 +12,7 @@
     "@babel/preset-env": "^7.10.4",
     "@babel/register": "^7.10.4",
     "@openzeppelin/cli": "^2.8.2",
-    "@openzeppelin/contracts": "^3.1.0",
+    "@openzeppelin/contracts": "^4.7.2",
     "@openzeppelin/test-helpers": "^0.5.5",
     "@truffle/hdwallet-provider": "^1.0.37",
     "@web3-js/scrypt-shim": "^0.1.0",
